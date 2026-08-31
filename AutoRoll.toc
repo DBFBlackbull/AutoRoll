@@ -1,0 +1,8 @@
+## Interface: 11200
+## Title: AutoRoll
+## Notes: Automatically rolls on desired items and confirms Bind on Pickup confirmation boxes.
+## Author: dbfblackbull
+## Version: 1.0
+## SavedVariablesPerCharacter: AutoRollData
+
+AutoRoll.lua
