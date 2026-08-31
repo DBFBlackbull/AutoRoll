@@ -186,6 +186,34 @@ function AutoRoll:GetRollValue(arg)
 	return -1
 end
 
+local function dump(o)
+	if type(o) == 'table' then
+		local s = '{ '
+		local idx = 0
+		for k,v in pairs(o) do
+			local key = k
+			if type(k) ~= 'number' then
+				key = '"'..key..'"'
+			end
+
+			if idx > 0 then
+				s = s .. ', '
+			end
+			s = s .. '['..key..'] = ' .. dump(v)
+			idx = idx + 1
+		end
+		return s .. '} '
+	end
+
+	return tostring(o)
+end
+
+
+function AutoRoll:Dump()
+	self:Print("items = "..dump(AutoRollData.items))
+	self:Print("raid = "..dump(AutoRollData.raid))
+	self:Print("settings = "..dump(AutoRollData.settings))
+end
 
 function AutoRoll:SetItem(itemID, rollValue, skipMessage)
 	AutoRollData.items[itemID] = rollValue
@@ -423,6 +451,7 @@ local helpMessage = [[
 	Naxx items: /ar naxx (need|greed|pass|remove)
 	Raid setting: /ar raid (need|greed|pass|remove)
 	Mute rolls: /ar (mute|unmute)
+	Show all items tracked: /ar debug
 	Show this message: /ar help
 ]]
 
@@ -484,6 +513,10 @@ SlashCmdList["AUTOROLL"] = function(msg)
 
 	if not cmd or cmd == "" or cmd == "help" then
 		return AutoRoll:Print(helpMessage)
+	end
+
+	if cmd == "debug" then
+		return AutoRoll:Dump()
 	end
 
 	if cmd == "mute" or cmd == "unmute" then
