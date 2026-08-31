@@ -430,7 +430,7 @@ function AutoRoll:OnAddonLoaded()
 	self:Print("Addon loaded. Do /ar or /autoroll for help")
 end
 
-function AutoRoll:OnEvent()
+function AutoRoll.OnEvent()
 	if event == "ADDON_LOADED" and arg1 == "AutoRoll" then
 		return AutoRoll:OnAddonLoaded()
 	end
@@ -439,7 +439,11 @@ function AutoRoll:OnEvent()
 		return AutoRoll:OnLootBindConfirm()
 	end
 
-	if evenet == "START_LOOT_ROLL" then
+	if event == "LOOT_OPENED" then
+		return AutoRoll:OnLootOpened()
+	end
+
+	if event == "START_LOOT_ROLL" then
 		return AutoRoll:OnStartLootRoll()
 	end
 
