@@ -174,17 +174,58 @@ function AutoRoll:IsInRaidInstance()
 	return instanceType == "raid"
 end
 
-function AutoRoll:SetItem(itemID, rollValue)
-	AutoRollData.items[itemID] = rollValue
-	if rollValue then
-		return self:Print("Automatically rolling "..self.TEXT[rollValue].." on "..self:GetItemLink(itemID))
+function AutoRoll:GetRollValue(arg)
+	if arg == "need" or arg == "greed" or arg == "pass" then
+		return AutoRoll.ACTION[string.upper(arg)]
 	end
 
-	self:Print("Removed roll automation for "..self:GetItemLink(itemID))
+	if arg == "remove" then
+		return nil
+	end
+
+	return -1
 end
 
-function AutoRoll:MuteRolls(mute)
-	AutoRollData.settings.muteRolls = mute
+
+function AutoRoll:SetItem(itemID, rollValue, skipMessage)
+	AutoRollData.items[itemID] = rollValue
+	if skipMessage then
+		return
+	end
+	if rollValue then
+		return self:Print(string.format("Automatically rolling %s on %s", self.TEXT[rollValue], self:GetItemLink(itemID)))
+	end
+
+	self:Print(string.format("Removed roll automation for %s", self:GetItemLink(itemID)))
+end
+
+function AutoRoll:SetItems(items, arg, itemGroup)
+	local rollValue = self:GetRollValue(arg)
+	if not rollValue then
+		return self:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", arg))
+	end
+
+	for itemID, value in pairs(items) do
+		if type(value) == "table" then
+			for innerItemID, _ in pairs(value) do
+				self:SetItem(innerItemID, rollValue, true)
+			end
+		end
+
+		if type(itemID) == "number" then
+			self:SetItem(itemID, rollValue, true)
+		end
+	end
+
+	if rollValue then
+		return self:Print(string.format("Automatically rolling %s on %s", self.TEXT[rollValue], itemGroup))
+	end
+
+	self:Print(string.format("Removed roll automation for %s", itemGroup))
+end
+
+function AutoRoll:MuteRolls(arg)
+	AutoRollData.settings.muteRolls = arg == "mute"
 	if mute then
 		return self:Print("Muting individual roll values. Showing only win and received.")
 	end
@@ -192,10 +233,15 @@ function AutoRoll:MuteRolls(mute)
 	return self:Print("Showing all roll values.")
 end
 
-function AutoRoll:SetRaidRoll(rollValue)
+function AutoRoll:SetRaidRoll(arg)
+	local rollValue = self:GetRollValue(arg)
+	if rollValue == -1 then
+		return self:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", arg))
+	end
+
 	AutoRollData.raid = rollValue
 	if rollValue then
-		return self:Print("Automatically rolling "..self.TEXT[rollValue].. " on items in Raid instances.")
+		return self:Print(string.format("Automatically rolling %s on items in Raid instances.", self.TEXT[rollValue]))
 	end
 
 	self:Print("Removed roll automation in Raid instances.")
@@ -232,6 +278,10 @@ function AutoRoll:OnLootBindConfirm()
 	end
 
 	local itemID = self:GetItemIDFromLink(GetLootSlotLink(lootSlotLinkID))
+	if not itemID then
+		return
+	end
+
 	local rollValue = AutoRollData.items[itemID]
 	if rollValue and rollValue > 0 then
 		self:ConfirmPopup(self.STATIC_POPUP.LOOT_BIND)
@@ -255,7 +305,6 @@ function AutoRoll:OnLootOpened()
 
 		if LootSlotIsCoin(i) then
 			moneySlotID = i
-			break
 		end
 
 		-- LootSlot() function does not include the "money item" as an index
@@ -265,23 +314,28 @@ function AutoRoll:OnLootOpened()
 		end
 
 		local itemID = self:GetItemIDFromLink(GetLootSlotLink(lootSlotLinkID))
-		local rollValue = AutoRollData.items[itemID]
-		if rollValue and rollValue > 0 then
-			LootSlot(lootSlotID)
-		end
+		if itemID then
+			local rollValue = AutoRollData.items[itemID]
+			if rollValue and rollValue > 0 then
+				LootSlot(lootSlotID)
+			end
 
-		rollValue = AutoRollData.raid
-		if self:IsInRaidInstance() and rollValue and rollValue > 0 then
-			LootSlot(lootSlotID)
+			rollValue = AutoRollData.raid
+			if self:IsInRaidInstance() and rollValue and rollValue > 0 then
+				LootSlot(lootSlotID)
+			end
 		end
 	end
 end
 
 function AutoRoll:OnStartLootRoll()
 	local rollID = arg1
-
 	local itemLink = GetLootRollItemLink(rollID)
 	local itemID = self:GetItemIDFromLink()
+	if not itemID then
+		return
+	end
+
 	local rollValue = AutoRollData.items[itemID]
 	if rollValue then
 		RollOnLoot(rollID, rollValue)
@@ -297,8 +351,11 @@ end
 
 function AutoRoll:OnConfirmLootRoll()
 	local rollID = arg1
-
 	local itemID = self:GetItemIDFromLink(GetLootRollItemLink(rollID))
+	if not itemID then
+		return
+	end
+
 	local rollValue = AutoRollData.items[itemID]
 	if rollValue then
 		self:ConfirmPopup(self.STATIC_POPUP.CONFIRM_LOOT_ROLL)
@@ -324,7 +381,15 @@ function AutoRoll.ChatFrame_OnEvent(event)
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 	end
 
+	local itemID = self:GetItemIDFromLink(arg1)
+	if not itemID then
+		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
+	end
 
+	local rollValue = AutoRollData.items[itemID]
+	if rollValue then
+		return
+	end
 end
 
 function AutoRoll:ValidateItemArg(arg)
@@ -346,21 +411,16 @@ function AutoRoll:ValidateItemArg(arg)
 	return itemID
 end
 
-function AutoRoll:GetRollValue(arg)
-	if arg == "need" or arg == "greed" or arg == "pass" then
-		return AutoRoll.ACTION[string.upper(arg)]
-	end
-
-	if arg == "remove" then
-		return nil
-	end
-
-	return -1
-end
-
 local helpMessage = [[
 --- Valid commands ---
 	Single item: /ar (need|greed|pass|remove) (itemID|itemLink)
+	Argent Dawn items: /ar ad (need|greed|pass|remove)
+	Scourge Invasion items: /ar si (need|greed|pass|remove)
+	MC items: /ar mc (need|greed|pass|remove)
+	BWL items: /ar bwl (need|greed|pass|remove)
+	ZG items: /ar zg-(all|coin|bijou|craft) (need|greed|pass|remove)
+	AQ items: /ar aq-(all|scarab|idol|mount) (need|greed|pass|remove)
+	Naxx items: /ar naxx (need|greed|pass|remove)
 	Raid setting: /ar raid (need|greed|pass|remove)
 	Mute rolls: /ar (mute|unmute)
 	Show this message: /ar help
@@ -420,26 +480,70 @@ AutoRoll:RegisterEvent("ADDON_LOADED")
 SLASH_AUTOROLL1 = "/ar"
 SLASH_AUTOROLL2 = "/autoroll"
 SlashCmdList["AUTOROLL"] = function(msg)
-	local _, _, cmd, arg = string.find(string.lower(msg), "%s?(%a+)%s?(.*)")
+	local _, _, cmd, arg = string.find(string.lower(msg), "%s?([%a-]+)%s?(.*)")
 
-	if not cmd or cmd == "help" then
+	if not cmd or cmd == "" or cmd == "help" then
 		return AutoRoll:Print(helpMessage)
 	end
 
-	if cmd == "mute" then
-		return AutoRoll:MuteRolls(true)
-	end
-	if cmd == "unmute" then
-		return AutoRoll:MuteRolls(false)
+	if cmd == "mute" or cmd == "unmute" then
+		return AutoRoll:MuteRolls(cmd)
 	end
 
 	if cmd == "raid" then
-		local rollValue = AutoRoll:GetRollValue(arg)
-		if rollValue == -1 then
-			return AutoRoll:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", arg))
-		end
+		return AutoRoll:SetRaidRoll(arg)
+	end
 
-		return AutoRoll:SetRaidRoll(rollValue)
+	if cmd == "ad" then
+		return AutoRoll:SetItems(AutoRoll.ARGENT_DAWN, arg, "Argent Dawn reputation items.")
+	end
+
+	if cmd == "si" then
+		return AutoRoll:SetItems(AutoRoll.SCOURGE_INVASION, arg, "Scourge Invasion items.")
+	end
+
+	if cmd == "mc" then
+		return AutoRoll:SetItems(AutoRoll.MC, arg, "Molten Core crafting materials.")
+	end
+
+	if cmd == "bwl" then
+		return AutoRoll:SetItems(AutoRoll.BWL, arg, "Blackwing Lair items.")
+	end
+
+	if cmd == "naxx" then
+		return AutoRoll:SetItems(AutoRoll.Naxx, arg, "Naxxramas materials.")
+	end
+
+	if cmd == "zg-all" then
+		return AutoRoll:SetItems(AutoRoll.ZG, arg, "Zul'Gurup coins, bijous, and crafting materials.")
+	end
+
+	if cmd == "zg-coin" then
+		return AutoRoll:SetItems(AutoRoll.ZG.COINS, arg, "Zul'Gurup coins.")
+	end
+
+	if cmd == "zg-bijou" then
+		return AutoRoll:SetItems(AutoRoll.ZG.BIJOUS, arg, "Zul'Gurup bijous.")
+	end
+
+	if cmd == "zg-craft" then
+		return AutoRoll:SetItems(AutoRoll.ZG.BIJOUS, arg, "Zul'Gurup crafting materials.")
+	end
+
+	if cmd == "aq-all" then
+		return AutoRoll:SetItems(AutoRoll.AQ, arg, "Ahn'Qiraj scarabs, idols, and mounts.")
+	end
+
+	if cmd == "aq-scarab" then
+		return AutoRoll:SetItems(AutoRoll.AQ.SCARABS, arg, "Ahn'Qiraj scarabs.")
+	end
+
+	if cmd == "aq-idol" then
+		return AutoRoll:SetItems(AutoRoll.AQ.IDOLS, arg, "Ahn'Qiraj idols.")
+	end
+
+	if cmd == "aq-mount" then
+		return AutoRoll:SetItems(AutoRoll.AQ.MOUNTS, arg, "Ahn'Qiraj mounts.")
 	end
 
 	local rollValue = AutoRoll:GetRollValue(cmd)
