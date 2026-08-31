@@ -369,12 +369,6 @@ local helpMessage = [[
 function AutoRoll:OnAddonLoaded()
 	self:UnregisterEvent("ADDON_LOADED")
 
-	self:RegisterEvent("LOOT_BIND_CONFIRM")
-	self:RegisterEvent("LOOT_OPENED")
-
-	self:RegisterEvent("START_LOOT_ROLL")
-	self:RegisterEvent("CONFIRM_LOOT_ROLL")
-
 	AutoRollData = AutoRollData or {
 		items = {},
 		raid = nil, -- need / greed / pass in raid instance as fallback after items has been checked
@@ -389,43 +383,11 @@ function AutoRoll:OnAddonLoaded()
 
 	ChatFrame_OnEvent = self.ChatFrame_OnEvent
 
-	SLASH_AUTOROLL1 = "/ar"
-	SLASH_AUTOROLL2 = "/autoroll"
-	SlashCmdList["AUTOROLL"] = function(msg)
-		local _, _, cmd, arg = string.find(string.lower(msg), "%s?(%a+)%s?(.*)")
+	self:RegisterEvent("LOOT_BIND_CONFIRM")
+	self:RegisterEvent("LOOT_OPENED")
 
-		if cmd == "help" then
-			return self:Print(helpMessage)
-		end
-
-		if cmd == "mute" then
-			return self:MuteRolls(true)
-		end
-		if cmd == "unmute" then
-			return self:MuteRolls(false)
-		end
-
-		if cmd == "raid" then
-			local rollValue = self:GetRollValue(arg)
-			if rollValue == -1 then
-				return self:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", arg))
-			end
-
-			return self:SetRaidRoll(rollValue)
-		end
-
-		local rollValue = self:GetRollValue(cmd)
-		if rollValue == -1 then
-			return self:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", cmd))
-		end
-
-		local itemID = self:ValidateItemArg(arg)
-		if not itemID then
-			return self:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", arg))
-		end
-
-		return self:SetItem(itemID, rollValue)
-	end
+	self:RegisterEvent("START_LOOT_ROLL")
+	self:RegisterEvent("CONFIRM_LOOT_ROLL")
 
 	self:Print("Addon loaded. Do /ar or /autoroll for help")
 end
@@ -454,3 +416,41 @@ end
 
 AutoRoll:SetScript("OnEvent", AutoRoll.OnEvent)
 AutoRoll:RegisterEvent("ADDON_LOADED")
+
+SLASH_AUTOROLL1 = "/ar"
+SLASH_AUTOROLL2 = "/autoroll"
+SlashCmdList["AUTOROLL"] = function(msg)
+	local _, _, cmd, arg = string.find(string.lower(msg), "%s?(%a+)%s?(.*)")
+
+	if not cmd or cmd == "help" then
+		return AutoRoll:Print(helpMessage)
+	end
+
+	if cmd == "mute" then
+		return AutoRoll:MuteRolls(true)
+	end
+	if cmd == "unmute" then
+		return AutoRoll:MuteRolls(false)
+	end
+
+	if cmd == "raid" then
+		local rollValue = AutoRoll:GetRollValue(arg)
+		if rollValue == -1 then
+			return AutoRoll:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", arg))
+		end
+
+		return AutoRoll:SetRaidRoll(rollValue)
+	end
+
+	local rollValue = AutoRoll:GetRollValue(cmd)
+	if rollValue == -1 then
+		return AutoRoll:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", cmd))
+	end
+
+	local itemID = AutoRoll:ValidateItemArg(arg)
+	if not itemID then
+		return AutoRoll:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", arg))
+	end
+
+	return AutoRoll:SetItem(itemID, rollValue)
+end
