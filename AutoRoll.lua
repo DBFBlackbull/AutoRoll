@@ -142,9 +142,9 @@ AutoRoll.SCOURGE_INVASION = {
 	[23087] = true, -- Plate   Undead Slaying Chest
 }
 
-AutoRoll.ADDON_PREFIX = ITEM_QUALITY_COLORS[AutoRoll.ITEM_QUALITY.ARTIFACT].hex.."[AutoRoll]: "..FONT_COLOR_CODE_CLOSE
+AutoRoll.ADDON_PREFIX = ITEM_QUALITY_COLORS[AutoRoll.ITEM_QUALITY.ARTIFACT].hex.."[AutoRoll]: "
 function AutoRoll:Print(string)
-	DEFAULT_CHAT_FRAME:AddMessage(self.ADDON_PREFIX..tostring(string))
+	DEFAULT_CHAT_FRAME:AddMessage(self.ADDON_PREFIX..tostring(string)..FONT_COLOR_CODE_CLOSE)
 end
 
 function AutoRoll:GetItemIDFromLink(itemLink)
@@ -179,7 +179,7 @@ function AutoRoll:GetRollValue(arg)
 		return AutoRoll.ACTION[string.upper(arg)]
 	end
 
-	if arg == "remove" then
+	if arg == "delete" then
 		return nil
 	end
 
@@ -229,7 +229,7 @@ end
 
 function AutoRoll:SetItems(items, arg, itemGroup)
 	local rollValue = self:GetRollValue(arg)
-	if not rollValue then
+	if rollValue == -1 then
 		return self:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", arg))
 	end
 
@@ -253,8 +253,9 @@ function AutoRoll:SetItems(items, arg, itemGroup)
 end
 
 function AutoRoll:MuteRolls(arg)
-	AutoRollData.settings.muteRolls = arg == "mute"
-	if mute then
+	local isMuted = arg == "mute"
+	AutoRollData.settings.muteRolls = isMuted
+	if isMuted then
 		return self:Print("Muting individual roll values. Showing only win and received.")
 	end
 
@@ -291,8 +292,8 @@ function AutoRoll:OnLootBindConfirm()
 
 	-- Always auto approve when solo
 	if GetNumPartyMembers() == 0 and GetNumRaidMembers() == 0 then
+		--LootSlot(lootSlotID) -- this does not work so far. Check if it can be removed.
 		self:ConfirmPopup(self.STATIC_POPUP.LOOT_BIND)
-		LootSlot(lootSlotID) -- this does not work so far. Check if it can be removed.
 		return
 	end
 
@@ -312,8 +313,8 @@ function AutoRoll:OnLootBindConfirm()
 
 	local rollValue = AutoRollData.items[itemID]
 	if rollValue and rollValue > 0 then
+		--LootSlot(lootSlotID) -- this does not work so far. Check if it can be removed.
 		self:ConfirmPopup(self.STATIC_POPUP.LOOT_BIND)
-		LootSlot(lootSlotID) -- this does not work so far. Check if it can be removed.
 	end
 end
 
@@ -359,7 +360,7 @@ end
 function AutoRoll:OnStartLootRoll()
 	local rollID = arg1
 	local itemLink = GetLootRollItemLink(rollID)
-	local itemID = self:GetItemIDFromLink()
+	local itemID = self:GetItemIDFromLink(itemLink)
 	if not itemID then
 		return
 	end
@@ -409,13 +410,18 @@ function AutoRoll.ChatFrame_OnEvent(event)
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 	end
 
-	local itemID = self:GetItemIDFromLink(arg1)
+	local itemID = AutoRoll:GetItemIDFromLink(arg1)
 	if not itemID then
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 	end
 
 	local rollValue = AutoRollData.items[itemID]
 	if rollValue then
+		return
+	end
+
+	rollValue = AutoRollData.raid
+	if self:IsInRaidInstance() and rollValue then
 		return
 	end
 end
@@ -441,19 +447,18 @@ end
 
 local helpMessage = [[
 --- Valid commands ---
-	Single item: /ar (need|greed|pass|remove) (itemID|itemLink)
-	Argent Dawn items: /ar ad (need|greed|pass|remove)
-	Scourge Invasion items: /ar si (need|greed|pass|remove)
-	MC items: /ar mc (need|greed|pass|remove)
-	BWL items: /ar bwl (need|greed|pass|remove)
-	ZG items: /ar zg-(all|coin|bijou|craft) (need|greed|pass|remove)
-	AQ items: /ar aq-(all|scarab|idol|mount) (need|greed|pass|remove)
-	Naxx items: /ar naxx (need|greed|pass|remove)
-	Raid setting: /ar raid (need|greed|pass|remove)
-	Mute rolls: /ar (mute|unmute)
-	Show all items tracked: /ar debug
-	Show this message: /ar help
-]]
+    Single item: /ar (need|greed|pass|delete) (itemID|itemLink)
+    Argent Dawn items: /ar ad (need|greed|pass|delete)
+    Scourge Invasion items: /ar si (need|greed|pass|delete)
+    MC items: /ar mc (need|greed|pass|delete)
+    BWL items: /ar bwl (need|greed|pass|delete)
+    ZG items: /ar zg-(all|coin|bijou|craft) (need|greed|pass|delete)
+    AQ items: /ar aq-(all|scarab|idol|mount) (need|greed|pass|delete)
+    Naxx items: /ar naxx (need|greed|pass|delete)
+    Raid setting: /ar raid (need|greed|pass|delete)
+    Mute rolls: /ar (mute|unmute)
+    Show all items tracked: /ar debug
+    Show this message: /ar help]]
 
 function AutoRoll:OnAddonLoaded()
 	self:UnregisterEvent("ADDON_LOADED")
