@@ -280,14 +280,14 @@ function AutoRoll:ConfirmPopup(popupName, data)
 	for i=1,STATICPOPUP_NUMDIALOGS do
 		local frame = getglobal("StaticPopup"..i)
 		if frame:IsShown() and frame.which == popupName and frame.data == data then
-			local bindConfirmButton = getglobal("StaticPopup"..i.."Button1")
-			return bindConfirmButton:Click()
+			getglobal("StaticPopup"..i.."Button1"):Click()
+			return true
 		end
 	end
 end
 
 function AutoRoll:QueueBindConfirm(lootBindSlotID, lootClearedSlotID)
-	AutoRoll:Print(string.format("QueueBindConfirm", tostring(arg1)))
+	--AutoRoll:Print(string.format("QueueBindConfirm bindSlotID: %s clearSlotID: %s", lootBindSlotID, lootClearedSlotID))
 	self.confirm.lootBindSlotID = lootBindSlotID
 	self.confirm.clearedSlotID = lootClearedSlotID
 	self.confirm.tries = 0
@@ -295,15 +295,19 @@ function AutoRoll:QueueBindConfirm(lootBindSlotID, lootClearedSlotID)
 end
 
 function AutoRoll.OnUpdate()
-	AutoRoll:Print(string.format("OnUpdate %s", tostring(arg1)))
+	--AutoRoll:Print(string.format("OnUpdate %s", tostring(arg1)))
 	if not AutoRoll.confirm.lootBindSlotID then
 		AutoRoll:Hide()
 	end
 
-	AutoRoll:ConfirmPopup(AutoRoll.STATIC_POPUP.LOOT_BIND, AutoRoll.confirm.lootBindSlotID)
+	local isConfirmed = AutoRoll:ConfirmPopup(AutoRoll.STATIC_POPUP.LOOT_BIND, AutoRoll.confirm.lootBindSlotID)
+	if isConfirmed then
+		AutoRoll:Hide()
+	end
 
+	-- Safety to prevent system from going wild.
 	AutoRoll.confirm.tries = AutoRoll.confirm.tries + 1
-	if AutoRoll.confirm.tries > 5 then
+	if AutoRoll.confirm.tries > 20 then
 		AutoRoll:Hide()
 	end
 end
@@ -335,6 +339,8 @@ function AutoRoll:OnLootBindConfirm()
 		lootSlotLinkID = lootSlotLinkID + 1
 	end
 
+	--self:Print(string.format("%s lootSlotID: %s linkSlotID: %s moneySlotID: %s", event, tostring(lootSlotID), tostring(lootSlotLinkID), tostring(self.confirm.moneySlotID)))
+
 	-- Always auto approve when solo
 	if GetNumPartyMembers() == 0 and GetNumRaidMembers() == 0 then
 		return self:QueueBindConfirm(lootSlotID, lootSlotLinkID)
@@ -352,7 +358,7 @@ function AutoRoll:OnLootBindConfirm()
 end
 
 function AutoRoll:OnLootSlotCleared()
-	self:Print(event .. " " .. tostring(arg1))
+	--self:Print(event .. " " .. tostring(arg1))
 	if self.confirm.clearedSlotID ~= arg1 then
 		return
 	end
@@ -363,7 +369,7 @@ function AutoRoll:OnLootSlotCleared()
 end
 
 function AutoRoll:OnLootClosed()
-	self:Print(event .. " " .. tostring(arg1))
+	--self:Print(event .. " " .. tostring(arg1))
 	self.confirm.moneySlotID = nil
 	self.confirm.lootBindSlotID = nil
 	self.confirm.clearedSlotID = nil
@@ -372,7 +378,6 @@ end
 
 function AutoRoll:OnLootOpened()
 	self:SetMoneySlotID()
-	AutoRoll:Print(event .. " moneySlotID: " .. self.confirm.moneySlotID)
 end
 
 function AutoRoll:OnStartLootRoll()
@@ -439,7 +444,7 @@ function AutoRoll.ChatFrame_OnEvent(event)
 	end
 
 	rollValue = AutoRollData.raid
-	if self:IsInRaidInstance() and rollValue then
+	if AutoRoll:IsInRaidInstance() and rollValue then
 		return
 	end
 end
@@ -531,6 +536,10 @@ function AutoRoll.OnEvent()
 
 	if event == "LOOT_SLOT_CLEARED" then
 		return AutoRoll:OnLootSlotCleared()
+	end
+
+	if event == "LOOT_CLOSED" then
+		return AutoRoll:OnLootClosed()
 	end
 
 	if event == "START_LOOT_ROLL" then
