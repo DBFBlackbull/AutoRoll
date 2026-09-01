@@ -142,6 +142,29 @@ AutoRoll.SCOURGE_INVASION = {
 	[23087] = true, -- Plate   Undead Slaying Chest
 }
 
+local function dump(o)
+	if type(o) == 'table' then
+		local s = '{ '
+		local idx = 0
+		for k,v in pairs(o) do
+			local key = k
+			if type(k) ~= 'number' then
+				key = '"'..key..'"'
+			end
+
+			if idx > 0 then
+				s = s .. ', '
+			end
+			s = s .. '['..key..'] = ' .. dump(v)
+			idx = idx + 1
+		end
+		return s .. '} '
+	end
+
+	return tostring(o)
+end
+
+
 AutoRoll.ADDON_PREFIX = ITEM_QUALITY_COLORS[AutoRoll.ITEM_QUALITY.ARTIFACT].hex.."[AutoRoll]: "
 function AutoRoll:Print(string)
 	DEFAULT_CHAT_FRAME:AddMessage(self.ADDON_PREFIX..tostring(string)..FONT_COLOR_CODE_CLOSE)
@@ -185,29 +208,6 @@ function AutoRoll:GetRollValue(arg)
 
 	return -1
 end
-
-local function dump(o)
-	if type(o) == 'table' then
-		local s = '{ '
-		local idx = 0
-		for k,v in pairs(o) do
-			local key = k
-			if type(k) ~= 'number' then
-				key = '"'..key..'"'
-			end
-
-			if idx > 0 then
-				s = s .. ', '
-			end
-			s = s .. '['..key..'] = ' .. dump(v)
-			idx = idx + 1
-		end
-		return s .. '} '
-	end
-
-	return tostring(o)
-end
-
 
 function AutoRoll:Dump()
 	self:Print("items = "..dump(AutoRollData.items))
@@ -276,34 +276,68 @@ function AutoRoll:SetRaidRoll(arg)
 	self:Print("Removed roll automation in Raid instances.")
 end
 
-function AutoRoll:ConfirmPopup(popupName)
+function AutoRoll:ConfirmPopup(popupName, data)
 	for i=1,STATICPOPUP_NUMDIALOGS do
 		local frame = getglobal("StaticPopup"..i)
-		if frame.which == popupName and frame:IsShown() then
+		if frame:IsShown() and frame.which == popupName and frame.data == data then
 			local bindConfirmButton = getglobal("StaticPopup"..i.."Button1")
 			return bindConfirmButton:Click()
 		end
 	end
 end
 
+function AutoRoll:QueueBindConfirm(lootBindSlotID, lootClearedSlotID)
+	AutoRoll:Print(string.format("QueueBindConfirm", tostring(arg1)))
+	self.confirm.lootBindSlotID = lootBindSlotID
+	self.confirm.clearedSlotID = lootClearedSlotID
+	self.confirm.tries = 0
+	self:Show()
+end
+
+function AutoRoll.OnUpdate()
+	AutoRoll:Print(string.format("OnUpdate %s", tostring(arg1)))
+	if not AutoRoll.confirm.lootBindSlotID then
+		AutoRoll:Hide()
+	end
+
+	AutoRoll:ConfirmPopup(AutoRoll.STATIC_POPUP.LOOT_BIND, AutoRoll.confirm.lootBindSlotID)
+
+	AutoRoll.confirm.tries = AutoRoll.confirm.tries + 1
+	if AutoRoll.confirm.tries > 5 then
+		AutoRoll:Hide()
+	end
+end
+
+function AutoRoll:SetMoneySlotID()
+	if self.confirm.moneySlotID then
+		return
+	end
+
+	for i=1,GetNumLootItems() do
+		if LootSlotIsCoin(i) then
+			self.confirm.moneySlotID = i
+			return
+		end
+	end
+
+	-- Hack to ignore moneySlot when not present.
+	self.confirm.moneySlotID = 999
+end
+
 function AutoRoll:OnLootBindConfirm()
 	local lootSlotID = arg1
 	local lootSlotLinkID = arg1
 
-	-- Always auto approve when solo
-	if GetNumPartyMembers() == 0 and GetNumRaidMembers() == 0 then
-		--LootSlot(lootSlotID) -- this does not work so far. Check if it can be removed.
-		self:ConfirmPopup(self.STATIC_POPUP.LOOT_BIND)
-		return
-	end
-
 	-- LootSlot() function / arg1 lootSlotID does not include the "money item" as an index
 	-- GetLootSlotLink() function does includes the "money item" as an index
-	for i=1,GetNumLootItems() do
-		if LootSlotIsCoin(i) and i <= lootSlotLinkID then
-			lootSlotLinkID = lootSlotLinkID + 1
-			break
-		end
+	self:SetMoneySlotID()
+	if self.confirm.moneySlotID <= lootSlotLinkID then
+		lootSlotLinkID = lootSlotLinkID + 1
+	end
+
+	-- Always auto approve when solo
+	if GetNumPartyMembers() == 0 and GetNumRaidMembers() == 0 then
+		return self:QueueBindConfirm(lootSlotID, lootSlotLinkID)
 	end
 
 	local itemID = self:GetItemIDFromLink(GetLootSlotLink(lootSlotLinkID))
@@ -313,48 +347,32 @@ function AutoRoll:OnLootBindConfirm()
 
 	local rollValue = AutoRollData.items[itemID]
 	if rollValue and rollValue > 0 then
-		--LootSlot(lootSlotID) -- this does not work so far. Check if it can be removed.
-		self:ConfirmPopup(self.STATIC_POPUP.LOOT_BIND)
+		return self:QueueBindConfirm(lootSlotID, lootSlotLinkID)
 	end
 end
 
-function AutoRoll:OnLootOpened()
-	-- Always auto approve when solo
-	if GetNumPartyMembers() == 0 and GetNumRaidMembers() == 0 then
-		for i=1,GetNumLootItems() do
-			LootSlot(i)
-		end
+function AutoRoll:OnLootSlotCleared()
+	self:Print(event .. " " .. tostring(arg1))
+	if self.confirm.clearedSlotID ~= arg1 then
 		return
 	end
 
-	local moneySlotID
-	for i=1,GetNumLootItems() do
-		local lootSlotID = i
-		local lootSlotLinkID = i
+	self.confirm.lootBindSlotID = nil
+	self.confirm.clearedSlotID = nil
+	self:Hide()
+end
 
-		if LootSlotIsCoin(i) then
-			moneySlotID = i
-		end
+function AutoRoll:OnLootClosed()
+	self:Print(event .. " " .. tostring(arg1))
+	self.confirm.moneySlotID = nil
+	self.confirm.lootBindSlotID = nil
+	self.confirm.clearedSlotID = nil
+	self:Hide()
+end
 
-		-- LootSlot() function does not include the "money item" as an index
-		-- GetLootSlotLink() function does includes the "money item" as an index
-		if moneySlotID then
-			lootSlotID = lootSlotID - 1
-		end
-
-		local itemID = self:GetItemIDFromLink(GetLootSlotLink(lootSlotLinkID))
-		if itemID then
-			local rollValue = AutoRollData.items[itemID]
-			if rollValue and rollValue > 0 then
-				LootSlot(lootSlotID)
-			end
-
-			rollValue = AutoRollData.raid
-			if self:IsInRaidInstance() and rollValue and rollValue > 0 then
-				LootSlot(lootSlotID)
-			end
-		end
-	end
+function AutoRoll:OnLootOpened()
+	self:SetMoneySlotID()
+	AutoRoll:Print(event .. " moneySlotID: " .. self.confirm.moneySlotID)
 end
 
 function AutoRoll:OnStartLootRoll()
@@ -387,12 +405,12 @@ function AutoRoll:OnConfirmLootRoll()
 
 	local rollValue = AutoRollData.items[itemID]
 	if rollValue then
-		self:ConfirmPopup(self.STATIC_POPUP.CONFIRM_LOOT_ROLL)
+		return self:ConfirmPopup(self.STATIC_POPUP.CONFIRM_LOOT_ROLL, arg1)
 	end
 
 	rollValue = AutoRollData.raid
 	if self:IsInRaidInstance() and rollValue then
-		self:ConfirmPopup(self.STATIC_POPUP.CONFIRM_LOOT_ROLL)
+		return self:ConfirmPopup(self.STATIC_POPUP.CONFIRM_LOOT_ROLL, arg1)
 	end
 end
 
@@ -471,6 +489,13 @@ function AutoRoll:OnAddonLoaded()
 		}
 	}
 
+	self.confirm = {
+		moneySlotID = nil,
+		bindSlotID = nil,
+		clearedSlotID = nil,
+		tries = 0
+	}
+
 	self.BlizzardFunctions = {
 		ChatFrame_OnEvent = ChatFrame_OnEvent
 	}
@@ -479,9 +504,14 @@ function AutoRoll:OnAddonLoaded()
 
 	self:RegisterEvent("LOOT_BIND_CONFIRM")
 	self:RegisterEvent("LOOT_OPENED")
+	self:RegisterEvent("LOOT_SLOT_CLEARED")
+	self:RegisterEvent("LOOT_CLOSED")
 
 	self:RegisterEvent("START_LOOT_ROLL")
 	self:RegisterEvent("CONFIRM_LOOT_ROLL")
+
+	self:Hide()
+	self:SetScript("OnUpdate", self.OnUpdate)
 
 	self:Print("Addon loaded. Do /ar or /autoroll for help")
 end
@@ -497,6 +527,10 @@ function AutoRoll.OnEvent()
 
 	if event == "LOOT_OPENED" then
 		return AutoRoll:OnLootOpened()
+	end
+
+	if event == "LOOT_SLOT_CLEARED" then
+		return AutoRoll:OnLootSlotCleared()
 	end
 
 	if event == "START_LOOT_ROLL" then
