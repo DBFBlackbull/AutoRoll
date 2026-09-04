@@ -1,5 +1,10 @@
 local AutoRoll = CreateFrame("Frame")
 
+-- CHAT COLOR LOOT 0 0.66666670609266 0
+AutoRoll.COLOR = {
+	LOOT_COLOR = {r = 0, g = 0.66666670609266, b = 0}
+}
+
 AutoRoll.ITEM_QUALITY = {
 	POOR = 0,      -- Gray
 	COMMON = 1,    -- White
@@ -165,9 +170,20 @@ local function dump(o)
 end
 
 
-AutoRoll.ADDON_PREFIX = ITEM_QUALITY_COLORS[AutoRoll.ITEM_QUALITY.ARTIFACT].hex.."[AutoRoll]: "
+AutoRoll.ADDON_PREFIX = ITEM_QUALITY_COLORS[AutoRoll.ITEM_QUALITY.ARTIFACT].hex.."[AutoRoll]: "..FONT_COLOR_CODE_CLOSE
 function AutoRoll:Print(string)
-	DEFAULT_CHAT_FRAME:AddMessage(self.ADDON_PREFIX..tostring(string)..FONT_COLOR_CODE_CLOSE)
+	DEFAULT_CHAT_FRAME:AddMessage(self.ADDON_PREFIX..tostring(string))
+end
+
+function AutoRoll:PrintLootMsg(rollValue, itemLink)
+	local msg = ""
+	if rollValue > 0 then
+		msg = string.format("Selected %s on: %s", AutoRoll.TEXT[rollValue], itemLink)
+	else
+		msg = string.format("Passed on: %s", itemLink)
+	end
+
+	DEFAULT_CHAT_FRAME:AddMessage(self.ADDON_PREFIX..msg, self.COLOR.LOOT_COLOR.r, self.COLOR.LOOT_COLOR.g, self.COLOR.LOOT_COLOR.b)
 end
 
 function AutoRoll:GetItemIDFromLink(itemLink)
@@ -186,7 +202,7 @@ end
 function AutoRoll:GetItemLink(itemID)
 	local itemName, itemLink, itemQuality = GetItemInfo(itemID)
 	if itemName and itemLink and itemQuality then
-		local _, _, _, hex = GetItemQualityColor(tonumber(itemQuality))
+		local hex = ITEM_QUALITY_COLORS[tonumber(itemQuality)].hex
 		local hyperLink = hex.. "|H".. itemLink .."|h["..itemName.."]|h" .. FONT_COLOR_CODE_CLOSE
 		return hyperLink
 	end
@@ -210,7 +226,12 @@ function AutoRoll:GetRollValue(arg)
 end
 
 function AutoRoll:Dump()
-	self:Print("items = "..dump(AutoRollData.items))
+	local tempTable = {}
+	for k, v in pairs(AutoRollData.items) do
+		local key =  self:GetItemLink(k) or k
+		tempTable[key] = self.TEXT[v]
+	end
+	self:Print("items = "..dump(tempTable))
 	self:Print("raid = "..dump(AutoRollData.raid))
 	self:Print("settings = "..dump(AutoRollData.settings))
 end
@@ -224,7 +245,7 @@ function AutoRoll:SetItem(itemID, rollValue, skipMessage)
 		return self:Print(string.format("Automatically rolling %s on %s", self.TEXT[rollValue], self:GetItemLink(itemID)))
 	end
 
-	self:Print(string.format("Removed roll automation for %s", self:GetItemLink(itemID)))
+	self:Print(string.format("Deleted roll automation for %s", self:GetItemLink(itemID)))
 end
 
 function AutoRoll:SetItems(items, arg, itemGroup)
@@ -249,7 +270,7 @@ function AutoRoll:SetItems(items, arg, itemGroup)
 		return self:Print(string.format("Automatically rolling %s on %s", self.TEXT[rollValue], itemGroup))
 	end
 
-	self:Print(string.format("Removed roll automation for %s", itemGroup))
+	self:Print(string.format("Deleted roll automation for %s", itemGroup))
 end
 
 function AutoRoll:MuteRolls(arg)
@@ -273,7 +294,7 @@ function AutoRoll:SetRaidRoll(arg)
 		return self:Print(string.format("Automatically rolling %s on items in Raid instances.", self.TEXT[rollValue]))
 	end
 
-	self:Print("Removed roll automation in Raid instances.")
+	self:Print("Deleted roll automation in Raid instances.")
 end
 
 function AutoRoll:ConfirmPopup(popupName, data)
@@ -391,13 +412,13 @@ function AutoRoll:OnStartLootRoll()
 	local rollValue = AutoRollData.items[itemID]
 	if rollValue then
 		RollOnLoot(rollID, rollValue)
-		self:Print("Rolling "..AutoRoll.TEXT[rollValue].." on "..itemLink)
+		self:PrintLootMsg(rollValue, itemLink)
 	end
 
 	rollValue = AutoRollData.raid
 	if self:IsInRaidInstance() and rollValue then
 		RollOnLoot(rollID, rollValue)
-		self:Print("Rolling "..AutoRoll.TEXT[rollValue].." on "..itemLink)
+		self:PrintLootMsg(rollValue, itemLink)
 	end
 end
 
@@ -439,13 +460,13 @@ function AutoRoll.ChatFrame_OnEvent(event)
 	end
 
 	local rollValue = AutoRollData.items[itemID]
-	if rollValue then
-		return
+	if not rollValue then
+		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 	end
 
 	rollValue = AutoRollData.raid
-	if AutoRoll:IsInRaidInstance() and rollValue then
-		return
+	if AutoRoll:IsInRaidInstance() and not rollValue then
+		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 	end
 end
 
