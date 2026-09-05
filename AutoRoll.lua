@@ -1,10 +1,5 @@
 local AutoRoll = CreateFrame("Frame")
 
--- CHAT COLOR LOOT 0 0.66666670609266 0
-AutoRoll.COLOR = {
-	LOOT_COLOR = {r = 0, g = 0.66666670609266, b = 0}
-}
-
 AutoRoll.ITEM_QUALITY = {
 	POOR = 0,      -- Gray
 	COMMON = 1,    -- White
@@ -169,7 +164,6 @@ local function dump(o)
 	return tostring(o)
 end
 
-
 AutoRoll.ADDON_PREFIX = ITEM_QUALITY_COLORS[AutoRoll.ITEM_QUALITY.ARTIFACT].hex.."[AutoRoll]: "..FONT_COLOR_CODE_CLOSE
 function AutoRoll:Print(string)
 	DEFAULT_CHAT_FRAME:AddMessage(self.ADDON_PREFIX..tostring(string))
@@ -183,7 +177,8 @@ function AutoRoll:PrintLootMsg(rollValue, itemLink)
 		msg = string.format("Passed on: %s", itemLink)
 	end
 
-	DEFAULT_CHAT_FRAME:AddMessage(self.ADDON_PREFIX..msg, self.COLOR.LOOT_COLOR.r, self.COLOR.LOOT_COLOR.g, self.COLOR.LOOT_COLOR.b)
+	local info = ChatTypeInfo["LOOT"]
+	DEFAULT_CHAT_FRAME:AddMessage(self.ADDON_PREFIX..msg, info.r, info.g, info.b, info.id)
 end
 
 function AutoRoll:GetItemIDFromLink(itemLink)
