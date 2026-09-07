@@ -27,6 +27,11 @@ AutoRoll.TEXT = {
 	[0] = "Pass",
 }
 
+AutoRoll.AUTO_PASS_UNIQUE = {
+	[12382] = true, -- Key to the City / Strat UD key
+	-- [18250] = true, -- Gordok Shackle Key - Item is consumed on use so a perma pass would be incorrect
+}
+
 AutoRoll.ARGENT_DAWN = {
 	-- Scourgestones
 	[12840] = true,
@@ -435,6 +440,18 @@ function AutoRoll:OnConfirmLootRoll()
 	end
 end
 
+local KeyRingBagSlot = -2
+local KeyRingSize = 12
+function AutoRoll:OnPlayerEnteringWorld()
+	for slotID = 1, KeyRingSize do
+		local itemID = self:GetItemIDFromLink(GetContainerItemLink(KeyRingBagSlot, slotID))
+
+		if AutoRoll.AUTO_PASS_UNIQUE[itemID] and AutoRollData.items[itemID] ~= AutoRoll.ACTION.PASS then
+			self:SetItem(itemID, AutoRoll.ACTION.PASS)
+		end
+	end
+end
+
 function AutoRoll.ChatFrame_OnEvent(event)
 	if event ~= "CHAT_MSG_LOOT" then
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
@@ -531,6 +548,8 @@ function AutoRoll:OnAddonLoaded()
 	self:RegisterEvent("START_LOOT_ROLL")
 	self:RegisterEvent("CONFIRM_LOOT_ROLL")
 
+	self:RegisterEvent("PLAYER_ENTERING_WORLD")
+
 	self:Hide()
 	self:SetScript("OnUpdate", self.OnUpdate)
 
@@ -564,6 +583,10 @@ function AutoRoll.OnEvent()
 
 	if event == "CONFIRM_LOOT_ROLL" then
 		return AutoRoll:OnConfirmLootRoll()
+	end
+
+	if event == "PLAYER_ENTERING_WORLD" then
+		return AutoRoll:OnPlayerEnteringWorld()
 	end
 end
 
