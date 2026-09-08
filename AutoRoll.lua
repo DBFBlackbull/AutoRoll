@@ -208,6 +208,15 @@ function AutoRoll:GetItemLink(itemID)
 	end
 end
 
+function AutoRoll:GetItemQualityName(itemID)
+	local _, _, itemQuality = GetItemInfo(itemID)
+	if not itemQuality then
+		return
+	end
+
+	return string.lower(getglobal("ITEM_QUALITY"..itemQuality.."_DESC"))
+end
+
 function AutoRoll:IsInRaidInstance()
 	local _, instanceType = IsInInstance()
 	return instanceType == "raid"
@@ -232,9 +241,17 @@ function AutoRoll:Dump()
 		tempTable[key] = self.TEXT[v]
 	end
 	self:Print("items = "..dump(tempTable))
-	self:Print("raid = "..dump(AutoRollData.raid))
+	tempTable = {}
+	for k, v in pairs(AutoRollData.groups) do
+		tempTable[k] = self.TEXT[v]
+	end
+	self:Print("groups = "..dump(tempTable))
 	self:Print("settings = "..dump(AutoRollData.settings))
 end
+
+local autoRollMessage = "Automatically rolling %s on %s"
+local deleteRollMessage = "Deleted roll automation for %s"
+local unknownArgumentMessage = "Unknown argument: '%s'. Type '/ar help' to learn the commands"
 
 function AutoRoll:SetItem(itemID, rollValue, skipMessage)
 	AutoRollData.items[itemID] = rollValue
@@ -242,16 +259,16 @@ function AutoRoll:SetItem(itemID, rollValue, skipMessage)
 		return
 	end
 	if rollValue then
-		return self:Print(string.format("Automatically rolling %s on %s", self.TEXT[rollValue], self:GetItemLink(itemID)))
+		return self:Print(string.format(autoRollMessage, self.TEXT[rollValue], self:GetItemLink(itemID)))
 	end
 
-	self:Print(string.format("Deleted roll automation for %s", self:GetItemLink(itemID)))
+	self:Print(string.format(deleteRollMessage, self:GetItemLink(itemID)))
 end
 
 function AutoRoll:SetItems(items, arg, itemGroup)
 	local rollValue = self:GetRollValue(arg)
 	if rollValue == -1 then
-		return self:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", arg))
+		return self:Print(string.format(unknownArgumentMessage, arg))
 	end
 
 	for itemID, value in pairs(items) do
@@ -267,34 +284,93 @@ function AutoRoll:SetItems(items, arg, itemGroup)
 	end
 
 	if rollValue then
-		return self:Print(string.format("Automatically rolling %s on %s", self.TEXT[rollValue], itemGroup))
+		return self:Print(string.format(autoRollMessage, self.TEXT[rollValue], itemGroup))
 	end
 
-	self:Print(string.format("Deleted roll automation for %s", itemGroup))
+	self:Print(string.format(deleteRollMessage, itemGroup))
 end
 
-function AutoRoll:MuteRolls(arg)
-	local isMuted = arg == "mute"
-	AutoRollData.settings.muteRolls = isMuted
-	if isMuted then
-		return self:Print("Muting individual roll values. Showing only win and received.")
+local muteMessage = "Muting %s roll values. Showing only win and received."
+local unmuteMessage = "Showing %s roll values."
+function AutoRoll:MuteRolls(cmd, arg)
+	local isMuted = cmd == "mute"
+	local msg = isMuted and muteMessage or unmuteMessage
+
+	if arg == "auto" then
+		AutoRollData.settings.muteRolls.auto = isMuted
 	end
 
-	return self:Print("Showing all roll values.")
+	if arg == "gray" or arg == "grey" or arg == "poor" then
+		AutoRollData.settings.muteRolls.poor = isMuted
+	end
+
+	if arg == "white" or arg == "common" then
+		AutoRollData.settings.muteRolls.common = isMuted
+	end
+
+	if arg == "green" or arg == "uncommon" then
+		AutoRollData.settings.muteRolls.uncommon = isMuted
+	end
+
+	if arg == "blue" or arg == "rare" then
+		AutoRollData.settings.muteRolls.rare = isMuted
+	end
+
+	if arg == "purple" or arg == "epic" then
+		AutoRollData.settings.muteRolls.epic = isMuted
+	end
+
+	if arg == "raid" then
+		AutoRollData.settings.muteRolls.raid = isMuted
+	end
+
+	return self:Print(string.format(msg, arg))
 end
 
-function AutoRoll:SetRaidRoll(arg)
+function AutoRoll:SetGroupRoll(cmd, arg)
 	local rollValue = self:GetRollValue(arg)
 	if rollValue == -1 then
-		return self:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", arg))
+		return self:Print(string.format(unknownArgumentMessage, arg))
 	end
 
-	AutoRollData.raid = rollValue
+	local rollValueText = self.TEXT[rollValue]
+	local itemText = ""
+	if cmd == "gray" or cmd == "grey" or cmd == "poor" then
+		AutoRollData.groups.poor = rollValue
+		itemText = "Poor items."
+	end
+
+	if cmd == "white" or cmd == "common" then
+		AutoRollData.groups.common = rollValue
+		itemText = "Common items."
+	end
+
+	if cmd == "green" or cmd == "uncommon" then
+		AutoRollData.groups.uncommon = rollValue
+		itemText = "Uncommon items."
+	end
+
+	if cmd == "blue" or cmd == "rare" then
+		AutoRollData.groups.rare = rollValue
+		self:Print("setting ")
+		itemText = "Rare items."
+	end
+
+	if cmd == "purple" or cmd == "epic" then
+		AutoRollData.groups.epic = rollValue
+		itemText = "Epic items."
+	end
+
+	if cmd == "raid" then
+		AutoRollData.groups.raid = rollValue
+		itemText = "items in Raid instances."
+	end
+
 	if rollValue then
-		return self:Print(string.format("Automatically rolling %s on items in Raid instances.", self.TEXT[rollValue]))
+		return self:Print(string.format(autoRollMessage, rollValueText, itemText))
 	end
 
-	self:Print("Deleted roll automation in Raid instances.")
+	return self:Print(string.format(deleteRollMessage, itemText))
 end
 
 function AutoRoll:ConfirmPopup(popupName, data)
@@ -412,13 +488,22 @@ function AutoRoll:OnStartLootRoll()
 	local rollValue = AutoRollData.items[itemID]
 	if rollValue then
 		RollOnLoot(rollID, rollValue)
-		self:PrintLootMsg(rollValue, itemLink)
+		return self:PrintLootMsg(rollValue, itemLink)
 	end
 
-	rollValue = AutoRollData.raid
+	local qualityName = self:GetItemQualityName(itemID)
+	if qualityName then
+		rollValue = AutoRollData.groups[qualityName]
+		if rollValue then
+			RollOnLoot(rollID, rollValue)
+			return self:PrintLootMsg(rollValue, itemLink)
+		end
+	end
+
+	rollValue = AutoRollData.groups.raid
 	if self:IsInRaidInstance() and rollValue then
 		RollOnLoot(rollID, rollValue)
-		self:PrintLootMsg(rollValue, itemLink)
+		return self:PrintLootMsg(rollValue, itemLink)
 	end
 end
 
@@ -455,10 +540,6 @@ function AutoRoll.ChatFrame_OnEvent(event)
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 	end
 
-	if not AutoRollData.settings.muteRolls then
-		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
-	end
-
 	local isWonReceive = string.find(arg1 ,"won") or string.find(arg1 ,"receive")
 	if isWonReceive then
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
@@ -470,14 +551,34 @@ function AutoRoll.ChatFrame_OnEvent(event)
 	end
 
 	local rollValue = AutoRollData.items[itemID]
-	if not rollValue then
-		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
+	if rollValue and AutoRollData.settings.muteRolls.auto then
+		return
 	end
 
-	rollValue = AutoRollData.raid
-	if AutoRoll:IsInRaidInstance() and not rollValue then
-		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
+	local qualityName = self:GetItemQualityName(itemID)
+	if qualityName then
+		rollValue = AutoRollData.groups[qualityName]
+		if rollValue and AutoRollData.settings.muteRolls.auto then
+			return
+		end
+
+		if AutoRollData.settings.muteRolls[qualityName] then
+			return
+		end
 	end
+
+	if AutoRoll:IsInRaidInstance() then
+		rollValue = AutoRollData.groups.raid
+		if rollValue and AutoRollData.settings.muteRolls.auto then
+			return
+		end
+
+		if AutoRollData.settings.muteRolls.raid then
+			return
+		end
+	end
+
+	return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 end
 
 function AutoRoll:ValidateItemArg(arg)
@@ -499,29 +600,29 @@ function AutoRoll:ValidateItemArg(arg)
 	return itemID
 end
 
-local helpMessage = [[
---- Valid commands ---
-    Single item: /ar (need|greed|pass|delete) (itemID|itemLink)
-    Argent Dawn items: /ar ad (need|greed|pass|delete)
-    Scourge Invasion items: /ar si (need|greed|pass|delete)
-    MC items: /ar mc (need|greed|pass|delete)
-    BWL items: /ar bwl (need|greed|pass|delete)
-    ZG items: /ar zg-(all|coin|bijou|craft) (need|greed|pass|delete)
-    AQ items: /ar aq-(all|scarab|idol|mount) (need|greed|pass|delete)
-    Naxx items: /ar naxx (need|greed|pass|delete)
-    Raid setting: /ar raid (need|greed|pass|delete)
-    Mute rolls: /ar (mute|unmute)
-    Show all items tracked: /ar debug
-    Show this message: /ar help]]
-
 function AutoRoll:OnAddonLoaded()
 	self:UnregisterEvent("ADDON_LOADED")
 
 	AutoRollData = AutoRollData or {
 		items = {},
-		raid = nil, -- need / greed / pass in raid instance as fallback after items has been checked
+		groups = {
+			poor = nil,
+			common = nil,
+			uncommon = nil,
+			rare = nil,
+			epic = nil,
+			raid = nil,
+		},
 		settings = {
-			muteRolls = false
+			muteRolls = {
+				auto = false,
+				poor = false,
+				common = false,
+				uncommon = false,
+				rare = false,
+				epic = false,
+				raid = false
+			}
 		}
 	}
 
@@ -591,13 +692,50 @@ end
 AutoRoll:SetScript("OnEvent", AutoRoll.OnEvent)
 AutoRoll:RegisterEvent("ADDON_LOADED")
 
+local helpMessages = {
+	[[--- Auto roll commands ---
+    Single item: /ar (need|greed|pass|delete) (itemID|itemLink)
+    Argent Dawn items: /ar ad (need|greed|pass|delete)
+    Scourge Invasion items: /ar si (need|greed|pass|delete)
+    MC items: /ar mc (need|greed|pass|delete)
+    BWL items: /ar bwl (need|greed|pass|delete)
+    ZG items: /ar zg-(all|coin|bijou|craft) (need|greed|pass|delete)
+    AQ items: /ar aq-(all|scarab|idol|mount) (need|greed|pass|delete)
+    Naxx items: /ar naxx (need|greed|pass|delete)
+    Rarity settings: /ar (poor|common|uncommon|rare|epic) (need|greed|pass|delete)
+    Raid setting: /ar raid (need|greed|pass|delete)]],
+	[[--- Mute rolls commands ---
+    Mute rolls: /ar (mute|unmute) (auto|poor|common|uncommon|rare|epic||raid)]],
+	[[--- Help commands ---
+    Show all items tracked: /ar debug
+    Show this message: /ar help]],
+}
+
+local groupRolls = {
+	["gray"] = true,
+	["grey"] = true,
+	["poor"] = true,
+	["white"] = true,
+	["common"] = true,
+	["green"] = true,
+	["uncommon"] = true,
+	["blue"] = true,
+	["rare"] = true,
+	["purple"] = true,
+	["epic"] = true,
+	["raid"] = true,
+}
+
 SLASH_AUTOROLL1 = "/ar"
 SLASH_AUTOROLL2 = "/autoroll"
 SlashCmdList["AUTOROLL"] = function(msg)
 	local _, _, cmd, arg = string.find(string.lower(msg), "%s?([%a-]+)%s?(.*)")
 
 	if not cmd or cmd == "" or cmd == "help" then
-		return AutoRoll:Print(helpMessage)
+		for _, helpMessage in ipairs(helpMessages) do
+			AutoRoll:Print(helpMessage)
+		end
+		return
 	end
 
 	if cmd == "debug" then
@@ -605,11 +743,11 @@ SlashCmdList["AUTOROLL"] = function(msg)
 	end
 
 	if cmd == "mute" or cmd == "unmute" then
-		return AutoRoll:MuteRolls(cmd)
+		return AutoRoll:MuteRolls(cmd, arg)
 	end
 
-	if cmd == "raid" then
-		return AutoRoll:SetRaidRoll(arg)
+	if groupRolls[cmd] then
+		return AutoRoll:SetGroupRoll(cmd, arg)
 	end
 
 	if cmd == "ad" then
