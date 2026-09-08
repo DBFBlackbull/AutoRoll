@@ -440,11 +440,9 @@ function AutoRoll:OnConfirmLootRoll()
 	end
 end
 
-local KeyRingBagSlot = -2
-local KeyRingSize = 12
 function AutoRoll:OnPlayerEnteringWorld()
-	for slotID = 1, KeyRingSize do
-		local itemID = self:GetItemIDFromLink(GetContainerItemLink(KeyRingBagSlot, slotID))
+	for slotID = 1, GetKeyRingSize() do
+		local itemID = self:GetItemIDFromLink(GetContainerItemLink(KEYRING_CONTAINER, slotID))
 
 		if AutoRoll.AUTO_PASS_UNIQUE[itemID] and AutoRollData.items[itemID] ~= AutoRoll.ACTION.PASS then
 			self:SetItem(itemID, AutoRoll.ACTION.PASS)
