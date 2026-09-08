@@ -702,7 +702,7 @@ local helpMessages = {
     ZG items: /ar zg-(all|coin|bijou|craft) (need|greed|pass|delete)
     AQ items: /ar aq-(all|scarab|idol|mount) (need|greed|pass|delete)
     Naxx items: /ar naxx (need|greed|pass|delete)
-    Category settings: /ar (poor|common|uncommon|rare|epic||raid) (need|greed|pass|delete)
+    Category settings: /ar (poor|common|uncommon|rare|epic||raid) (need|greed|pass|delete)]],
 	[[--- Mute rolls commands ---
     Mute rolls: /ar (mute|unmute) (auto|poor|common|uncommon|rare|epic||raid)]],
 	[[--- Help commands ---
