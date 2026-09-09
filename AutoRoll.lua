@@ -555,7 +555,7 @@ function AutoRoll.ChatFrame_OnEvent(event)
 		return
 	end
 
-	local qualityName = self:GetItemQualityName(itemID)
+	local qualityName = AutoRoll:GetItemQualityName(itemID)
 	if qualityName then
 		rollValue = AutoRollData.groups[qualityName]
 		if rollValue and AutoRollData.settings.muteRolls.auto then
