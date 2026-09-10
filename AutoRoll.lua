@@ -32,6 +32,24 @@ AutoRoll.AUTO_PASS_UNIQUE = {
 	-- [18250] = true, -- Gordok Shackle Key - Item is consumed on use so a perma pass would be incorrect
 }
 
+AutoRoll.GEMS = {
+	[774] = true,   -- Malachite
+	[818] = true,   -- Tigerseye
+	[1206] = true,  -- Moss Agate
+	[1210] = true,  -- Shadowgem
+	[1705] = true,  -- Lesser Moonstone
+	[1529] = true,  -- Jade
+	[3864] = true,  -- Citrine
+	[7909] = true,  -- Aquamarine
+	[7910] = true,  -- Star Ruby
+	-- Added for completeness but they don't tend to drop from mobs
+	[12361] = true,  -- Blue Sapphire
+	[12363] = true,  -- Arcane Crystal
+	[12364] = true,  -- Huge Emerald
+	[12799] = true,  -- Large Opal
+	[12800] = true,  -- Azerothian Diamond
+}
+
 AutoRoll.ARGENT_DAWN = {
 	-- Scourgestones
 	[12840] = true,
@@ -39,6 +57,21 @@ AutoRoll.ARGENT_DAWN = {
 	[12843] = true,
 	-- Healthy Dragon Scale
 	[13920] = true,
+}
+
+AutoRoll.CENARION_CIRCLE = {
+	TWILIGHT_CULTIST_SET = {
+		[20406] = true, -- Shoulder
+		[20407] = true, -- Chest
+		[20408] = true, -- Head
+		[20451] = true, -- Twilight Cultist Ring of Lordship
+	},
+	REPUTATION = {
+		[20404] = true, -- Encrypted Twilight Text
+		[20513] = true, -- Abyssal Crest
+		[20514] = true, -- Abyssal Signet
+		[20515] = true, -- Abyssal Scepter
+	}
 }
 
 AutoRoll.MC = {
@@ -258,11 +291,13 @@ function AutoRoll:SetItem(itemID, rollValue, skipMessage)
 	if skipMessage then
 		return
 	end
+
+	local displayItem = self:GetItemLink(itemID) or itemID
 	if rollValue then
-		return self:Print(string.format(autoRollMessage, self.TEXT[rollValue], self:GetItemLink(itemID)))
+		return self:Print(string.format(autoRollMessage, self.TEXT[rollValue], displayItem))
 	end
 
-	self:Print(string.format(deleteRollMessage, self:GetItemLink(itemID)))
+	self:Print(string.format(deleteRollMessage, displayItem))
 end
 
 function AutoRoll:SetItems(items, arg, itemGroup)
