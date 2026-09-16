@@ -208,13 +208,17 @@ function AutoRoll:GetItemLink(itemID)
 	end
 end
 
+function AutoRoll:GetQualityName(itemQuality)
+	return string.lower(getglobal("ITEM_QUALITY"..itemQuality.."_DESC"))
+end
+
 function AutoRoll:GetItemQualityName(itemID)
 	local _, _, itemQuality = GetItemInfo(itemID)
 	if not itemQuality then
 		return
 	end
 
-	return string.lower(getglobal("ITEM_QUALITY"..itemQuality.."_DESC"))
+	return self:GetQualityName(itemQuality)
 end
 
 function AutoRoll:IsInRaidInstance()
@@ -243,7 +247,10 @@ function AutoRoll:Dump()
 	self:Print("items = "..dump(tempTable))
 	tempTable = {}
 	for k, v in pairs(AutoRollData.groups) do
-		tempTable[k] = self.TEXT[v]
+		for key, value in pairs(v) do
+			local tempKey = k.."."..key
+			tempTable[tempKey] = self.TEXT[value]
+		end
 	end
 	self:Print("groups = "..dump(tempTable))
 	self:Print("settings = "..dump(AutoRollData.settings))
@@ -327,43 +334,55 @@ function AutoRoll:MuteRolls(cmd, arg)
 	return self:Print(string.format(msg, arg))
 end
 
-function AutoRoll:SetGroupRoll(cmd, arg)
+function AutoRoll:SetGroupRoll(cmd, cmd2, arg)
 	local rollValue = self:GetRollValue(arg)
 	if rollValue == -1 then
 		return self:Print(string.format(unknownArgumentMessage, arg))
 	end
 
 	local rollValueText = self.TEXT[rollValue]
+	local table = nil
 	local itemText = ""
 	if cmd == "gray" or cmd == "grey" or cmd == "poor" then
-		AutoRollData.groups.poor = rollValue
-		itemText = "Poor items."
+		table = AutoRollData.groups.poor
+		itemText = "Poor %sitems."
 	end
 
 	if cmd == "white" or cmd == "common" then
-		AutoRollData.groups.common = rollValue
-		itemText = "Common items."
+		table = AutoRollData.groups.common
+		itemText = "Common %sitems."
 	end
 
 	if cmd == "green" or cmd == "uncommon" then
-		AutoRollData.groups.uncommon = rollValue
-		itemText = "Uncommon items."
+		table = AutoRollData.groups.uncommon
+		itemText = "Uncommon %sitems."
 	end
 
 	if cmd == "blue" or cmd == "rare" then
-		AutoRollData.groups.rare = rollValue
-		self:Print("setting ")
-		itemText = "Rare items."
+		table = AutoRollData.groups.rare
+		itemText = "Rare %sitems."
 	end
 
 	if cmd == "purple" or cmd == "epic" then
-		AutoRollData.groups.epic = rollValue
-		itemText = "Epic items."
+		table = AutoRollData.groups.epic
+		itemText = "Epic %sitems."
 	end
 
 	if cmd == "raid" then
-		AutoRollData.groups.raid = rollValue
-		itemText = "items in Raid instances."
+		table = AutoRollData.groups.raid
+		itemText = "%sitems in Raid instances."
+	end
+
+	if cmd2 == "bop" then
+		table.bop = rollValue
+		itemText = string.format(itemText, "BoP ")
+	elseif cmd2 == "boe" then
+		table.boe = rollValue
+		itemText = string.format(itemText, "BoE ")
+	else
+		table.boe = rollValue
+		table.bop = rollValue
+		itemText = string.format(itemText, "")
 	end
 
 	if rollValue then
@@ -491,16 +510,18 @@ function AutoRoll:OnStartLootRoll()
 		return self:PrintLootMsg(rollValue, itemLink)
 	end
 
-	local qualityName = self:GetItemQualityName(itemID)
+	local _, _, _, quality, bindOnPickUp = GetLootRollItemInfo(rollID)
+	local bind = bindOnPickUp and "bop" or "boe"
+	local qualityName = self:GetQualityName(quality)
 	if qualityName then
-		rollValue = AutoRollData.groups[qualityName]
+		rollValue = AutoRollData.groups[qualityName][bind]
 		if rollValue then
 			RollOnLoot(rollID, rollValue)
 			return self:PrintLootMsg(rollValue, itemLink)
 		end
 	end
 
-	rollValue = AutoRollData.groups.raid
+	rollValue = AutoRollData.groups.raid[bind]
 	if self:IsInRaidInstance() and rollValue then
 		RollOnLoot(rollID, rollValue)
 		return self:PrintLootMsg(rollValue, itemLink)
@@ -516,12 +537,22 @@ function AutoRoll:OnConfirmLootRoll()
 
 	local rollValue = AutoRollData.items[itemID]
 	if rollValue then
-		return self:ConfirmPopup(self.STATIC_POPUP.CONFIRM_LOOT_ROLL, arg1)
+		return self:ConfirmPopup(self.STATIC_POPUP.CONFIRM_LOOT_ROLL, rollID)
 	end
 
-	rollValue = AutoRollData.raid
+	local _, _, _, quality, bindOnPickUp = GetLootRollItemInfo(rollID)
+	local bind = bindOnPickUp and "bop" or "boe"
+	local qualityName = self:GetQualityName(quality)
+	if qualityName then
+		rollValue = AutoRollData.groups[qualityName][bind]
+		if rollValue then
+			return self:ConfirmPopup(self.STATIC_POPUP.CONFIRM_LOOT_ROLL, rollID)
+		end
+	end
+
+	rollValue = AutoRollData.groups.raid[bind]
 	if self:IsInRaidInstance() and rollValue then
-		return self:ConfirmPopup(self.STATIC_POPUP.CONFIRM_LOOT_ROLL, arg1)
+		return self:ConfirmPopup(self.STATIC_POPUP.CONFIRM_LOOT_ROLL, rollID)
 	end
 end
 
@@ -603,28 +634,48 @@ end
 function AutoRoll:OnAddonLoaded()
 	self:UnregisterEvent("ADDON_LOADED")
 
-	AutoRollData = AutoRollData or {
-		items = {},
-		groups = {
-			poor = nil,
-			common = nil,
-			uncommon = nil,
-			rare = nil,
-			epic = nil,
-			raid = nil,
-		},
-		settings = {
-			muteRolls = {
-				auto = false,
-				poor = false,
-				common = false,
-				uncommon = false,
-				rare = false,
-				epic = false,
-				raid = false
+	if not AutoRollData or not AutoRollData.groups or not AutoRollData.groups.poor or not AutoRollData.groups.poor then
+		AutoRollData = {
+			items = {},
+			groups = {
+				poor = {
+					boe = nil,
+					bop = nil,
+				},
+				common = {
+					boe = nil,
+					bop = nil,
+				},
+				uncommon = {
+					boe = nil,
+					bop = nil,
+				},
+				rare = {
+					boe = nil,
+					bop = nil,
+				},
+				epic = {
+					boe = nil,
+					bop = nil,
+				},
+				raid = {
+					boe = nil,
+					bop = nil,
+				},
+			},
+			settings = {
+				muteRolls = {
+					auto = false,
+					poor = false,
+					common = false,
+					uncommon = false,
+					rare = false,
+					epic = false,
+					raid = false
+				}
 			}
 		}
-	}
+	end
 
 	self.confirm = {
 		moneySlotID = nil,
@@ -702,7 +753,9 @@ local helpMessages = {
     ZG items: /ar zg-(all|coin|bijou|craft) (need|greed|pass|delete)
     AQ items: /ar aq-(all|scarab|idol|mount) (need|greed|pass|delete)
     Naxx items: /ar naxx (need|greed|pass|delete)
-    Category settings: /ar (poor|common|uncommon|rare|epic||raid) (need|greed|pass|delete)]],
+    Group settings: /ar (poor|common|uncommon|rare|epic||raid)-(all|boe|bop) (need|greed|pass|delete)]],
+	[[--- Messaging commands  ---
+    Disenchanter mode: /ar de (me|target)]],
 	[[--- Mute rolls commands ---
     Mute rolls: /ar (mute|unmute) (auto|poor|common|uncommon|rare|epic||raid)]],
 	[[--- Help commands ---
@@ -729,6 +782,10 @@ SLASH_AUTOROLL1 = "/ar"
 SLASH_AUTOROLL2 = "/autoroll"
 SlashCmdList["AUTOROLL"] = function(msg)
 	local _, _, cmd, arg = string.find(string.lower(msg), "%s?([%a-]+)%s?(.*)")
+	local _, _, split1, cmd2 = string.find(cmd, "([%a]+)-([%a]+)")
+	if split1 then
+		cmd = split1
+	end
 
 	if not cmd or cmd == "" or cmd == "help" then
 		for _, helpMessage in ipairs(helpMessages) do
@@ -746,7 +803,7 @@ SlashCmdList["AUTOROLL"] = function(msg)
 	end
 
 	if groupRolls[cmd] then
-		return AutoRoll:SetGroupRoll(cmd, arg)
+		return AutoRoll:SetGroupRoll(cmd, cmd2, arg)
 	end
 
 	if cmd == "ad" then
@@ -769,36 +826,42 @@ SlashCmdList["AUTOROLL"] = function(msg)
 		return AutoRoll:SetItems(AutoRoll.Naxx, arg, "Naxxramas materials.")
 	end
 
-	if cmd == "zg-all" then
-		return AutoRoll:SetItems(AutoRoll.ZG, arg, "Zul'Gurup coins, bijous, and crafting materials.")
+	if cmd == "zg" then
+		if cmd2 == "all" then
+			return AutoRoll:SetItems(AutoRoll.ZG, arg, "Zul'Gurup coins, bijous, and crafting materials.")
+		end
+
+		if cmd2 == "coin" then
+			return AutoRoll:SetItems(AutoRoll.ZG.COINS, arg, "Zul'Gurup coins.")
+		end
+
+		if cmd2 == "bijou" then
+			return AutoRoll:SetItems(AutoRoll.ZG.BIJOUS, arg, "Zul'Gurup bijous.")
+		end
+
+		if cmd2 == "craft" then
+			return AutoRoll:SetItems(AutoRoll.ZG.CRAFT, arg, "Zul'Gurup crafting materials.")
+		end
+		return
 	end
 
-	if cmd == "zg-coin" then
-		return AutoRoll:SetItems(AutoRoll.ZG.COINS, arg, "Zul'Gurup coins.")
-	end
+	if cmd == "aq" then
+		if cmd2 == "all" then
+			return AutoRoll:SetItems(AutoRoll.AQ, arg, "Ahn'Qiraj scarabs, idols, and mounts.")
+		end
 
-	if cmd == "zg-bijou" then
-		return AutoRoll:SetItems(AutoRoll.ZG.BIJOUS, arg, "Zul'Gurup bijous.")
-	end
+		if cmd2 == "scarab" then
+			return AutoRoll:SetItems(AutoRoll.AQ.SCARABS, arg, "Ahn'Qiraj scarabs.")
+		end
 
-	if cmd == "zg-craft" then
-		return AutoRoll:SetItems(AutoRoll.ZG.BIJOUS, arg, "Zul'Gurup crafting materials.")
-	end
+		if cmd2 == "idol" then
+			return AutoRoll:SetItems(AutoRoll.AQ.IDOLS, arg, "Ahn'Qiraj idols.")
+		end
 
-	if cmd == "aq-all" then
-		return AutoRoll:SetItems(AutoRoll.AQ, arg, "Ahn'Qiraj scarabs, idols, and mounts.")
-	end
-
-	if cmd == "aq-scarab" then
-		return AutoRoll:SetItems(AutoRoll.AQ.SCARABS, arg, "Ahn'Qiraj scarabs.")
-	end
-
-	if cmd == "aq-idol" then
-		return AutoRoll:SetItems(AutoRoll.AQ.IDOLS, arg, "Ahn'Qiraj idols.")
-	end
-
-	if cmd == "aq-mount" then
-		return AutoRoll:SetItems(AutoRoll.AQ.MOUNTS, arg, "Ahn'Qiraj mounts.")
+		if cmd2 == "mount" then
+			return AutoRoll:SetItems(AutoRoll.AQ.MOUNTS, arg, "Ahn'Qiraj mounts.")
+		end
+		return
 	end
 
 	local rollValue = AutoRoll:GetRollValue(cmd)
