@@ -264,7 +264,7 @@ function AutoRoll:GetRollValue(arg)
 		return AutoRoll.ACTION[string.upper(arg)]
 	end
 
-	if arg == "delete" then
+	if arg == "delete" or arg == "remove" then
 		return nil
 	end
 
@@ -290,7 +290,7 @@ function AutoRoll:Dump()
 end
 
 local autoRollMessage = "Automatically rolling %s on %s"
-local deleteRollMessage = "Deleted roll automation for %s"
+local removeRollMessage = "Removed roll automation for %s"
 local unknownArgumentMessage = "Unknown argument: '%s'. Type '/ar help' to learn the commands"
 
 function AutoRoll:SetItem(itemID, rollValue, skipMessage)
@@ -304,7 +304,7 @@ function AutoRoll:SetItem(itemID, rollValue, skipMessage)
 		return self:Print(string.format(autoRollMessage, self.TEXT[rollValue], displayItem))
 	end
 
-	self:Print(string.format(deleteRollMessage, displayItem))
+	self:Print(string.format(removeRollMessage, displayItem))
 end
 
 function AutoRoll:SetItems(items, arg, itemGroup)
@@ -329,7 +329,7 @@ function AutoRoll:SetItems(items, arg, itemGroup)
 		return self:Print(string.format(autoRollMessage, self.TEXT[rollValue], itemGroup))
 	end
 
-	self:Print(string.format(deleteRollMessage, itemGroup))
+	self:Print(string.format(removeRollMessage, itemGroup))
 end
 
 local muteMessage = "Muting %s roll values. Showing only win and received."
@@ -424,7 +424,7 @@ function AutoRoll:SetGroupRoll(cmd, cmd2, arg)
 		return self:Print(string.format(autoRollMessage, rollValueText, itemText))
 	end
 
-	return self:Print(string.format(deleteRollMessage, itemText))
+	return self:Print(string.format(removeRollMessage, itemText))
 end
 
 function AutoRoll:ConfirmPopup(popupName, data)
@@ -779,23 +779,23 @@ AutoRoll:SetScript("OnEvent", AutoRoll.OnEvent)
 AutoRoll:RegisterEvent("ADDON_LOADED")
 
 local helpMessages = {
-	[[--- Auto roll commands ---
-    Single item: /ar (need|greed|pass|delete) (itemID|itemLink)
-    Argent Dawn items: /ar ad (need|greed|pass|delete)
-    Scourge Invasion items: /ar si (need|greed|pass|delete)
-    MC items: /ar mc (need|greed|pass|delete)
-    BWL items: /ar bwl (need|greed|pass|delete)
-    ZG items: /ar zg-(all|coin|bijou|craft) (need|greed|pass|delete)
-    AQ items: /ar aq-(all|scarab|idol|mount) (need|greed|pass|delete)
-    Naxx items: /ar naxx (need|greed|pass|delete)
-    Group settings: /ar (poor|common|uncommon|rare|epic||raid)-(all|boe|bop) (need|greed|pass|delete)]],
-	[[--- Messaging commands  ---
-    Disenchanter mode: /ar de (me|target)]],
-	[[--- Mute rolls commands ---
-    Mute rolls: /ar (mute|unmute) (auto|poor|common|uncommon|rare|epic||raid)]],
-	[[--- Help commands ---
-    Show all items tracked: /ar debug
-    Show this message: /ar help]],
+	"--- Auto roll commands ---",
+	"    Single item: /ar (need|greed|pass||remove) (itemID|itemLink)",
+	"    Argent Dawn items: /ar ad (need|greed|pass||remove)",
+	"    Scourge Invasion items: /ar si (need|greed|pass||remove)",
+	"    Cenarion Circle items: /ar cc-(all|set||rep) (need|greed|pass||remove)",
+	"    MC items: /ar mc (need|greed|pass||remove)",
+	"    BWL items: /ar bwl (need|greed|pass||remove)",
+	"    ZG items: /ar zg-(all|coin|bijou|craft) (need|greed|pass||remove)",
+	"    AQ items: /ar aq-(all|scarab|idol|mount) (need|greed|pass||remove)",
+	"    Naxx items: /ar naxx (need|greed|pass||remove)",
+	"    Group settings: /ar (poor|common|uncommon|rare|epic||raid)-(all|boe|bop) (need|greed|pass||remove)",
+	"--- Chat commands  ---",
+	"    Mute rolls: /ar (mute|unmute) (auto|poor|common|uncommon|rare|epic||raid)",
+    "    Disenchanter mode: /ar de",
+	"--- Help commands ---",
+    "    Show all items tracked: /ar debug",
+    "    Show this message: /ar help",
 }
 
 local groupRolls = {
@@ -824,7 +824,12 @@ SlashCmdList["AUTOROLL"] = function(msg)
 
 	if not cmd or cmd == "" or cmd == "help" then
 		for _, helpMessage in ipairs(helpMessages) do
-			AutoRoll:Print(helpMessage)
+			local found = string.find(helpMessage, "^%-%-%-")
+			if found then
+				AutoRoll:Print(helpMessage)
+			else
+				DEFAULT_CHAT_FRAME:AddMessage(helpMessage)
+			end
 		end
 		return
 	end
