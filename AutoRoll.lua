@@ -547,6 +547,8 @@ function AutoRoll:OnStartLootRoll()
 
 	local _, _, _, quality, bindOnPickUp = GetLootRollItemInfo(rollID)
 	local bind = bindOnPickUp and "bop" or "boe"
+	self.rollBind[itemID] = bind
+
 	local qualityName = self:GetQualityName(quality)
 	if qualityName then
 		rollValue = AutoRollData.groups[qualityName][bind]
@@ -606,13 +608,14 @@ function AutoRoll.ChatFrame_OnEvent(event)
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 	end
 
-	local isWonReceive = string.find(arg1 ,"won") or string.find(arg1 ,"receive")
-	if isWonReceive then
+	local itemID = AutoRoll:GetItemIDFromLink(arg1)
+	if not itemID then
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 	end
 
-	local itemID = AutoRoll:GetItemIDFromLink(arg1)
-	if not itemID then
+	local isWonReceive = string.find(arg1 ,"won") or string.find(arg1 ,"receive")
+	if isWonReceive then
+		AutoRoll.rollBind[itemID] = nil
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 	end
 
@@ -621,25 +624,27 @@ function AutoRoll.ChatFrame_OnEvent(event)
 		return
 	end
 
+	local isYou = string.find(arg1 ,"You")
+	local bind = AutoRoll.rollBind[itemID] or ""
 	local qualityName = AutoRoll:GetItemQualityName(itemID)
 	if qualityName then
-		rollValue = AutoRollData.groups[qualityName]
+		rollValue = AutoRollData.groups[qualityName][bind]
 		if rollValue and AutoRollData.settings.muteRolls.auto then
 			return
 		end
 
-		if AutoRollData.settings.muteRolls[qualityName] then
+		if AutoRollData.settings.muteRolls[qualityName] and not isYou then
 			return
 		end
 	end
 
 	if AutoRoll:IsInRaidInstance() then
-		rollValue = AutoRollData.groups.raid
+		rollValue = AutoRollData.groups.raid[bind]
 		if rollValue and AutoRollData.settings.muteRolls.auto then
 			return
 		end
 
-		if AutoRollData.settings.muteRolls.raid then
+		if AutoRollData.settings.muteRolls.raid and not isYou then
 			return
 		end
 	end
@@ -673,30 +678,12 @@ function AutoRoll:OnAddonLoaded()
 		AutoRollData = {
 			items = {},
 			groups = {
-				poor = {
-					boe = nil,
-					bop = nil,
-				},
-				common = {
-					boe = nil,
-					bop = nil,
-				},
-				uncommon = {
-					boe = nil,
-					bop = nil,
-				},
-				rare = {
-					boe = nil,
-					bop = nil,
-				},
-				epic = {
-					boe = nil,
-					bop = nil,
-				},
-				raid = {
-					boe = nil,
-					bop = nil,
-				},
+				poor     = { boe = nil, bop = nil, },
+				common   = { boe = nil, bop = nil, },
+				uncommon = { boe = nil, bop = nil, },
+				rare     = { boe = nil, bop = nil, },
+				epic     = { boe = nil, bop = nil, },
+				raid     = { boe = nil, bop = nil, },
 			},
 			settings = {
 				muteRolls = {
@@ -717,6 +704,13 @@ function AutoRoll:OnAddonLoaded()
 		bindSlotID = nil,
 		clearedSlotID = nil,
 		tries = 0
+	}
+
+	self.rollBind = {}
+
+	self.disenchanter = {
+		player = nil,
+		expectedShards = 0,
 	}
 
 	self.BlizzardFunctions = {
@@ -792,10 +786,10 @@ local helpMessages = {
 	"    Group settings: /ar (poor|common|uncommon|rare|epic||raid)-(all|boe|bop) (need|greed|pass||remove)",
 	"--- Chat commands  ---",
 	"    Mute rolls: /ar (mute|unmute) (auto|poor|common|uncommon|rare|epic||raid)",
-    "    Disenchanter mode: /ar de",
+	"    Disenchanter mode: /ar de <target>",
 	"--- Help commands ---",
-    "    Show all items tracked: /ar debug",
-    "    Show this message: /ar help",
+	"    Show all items tracked: /ar debug",
+	"    Show this message: /ar help",
 }
 
 local groupRolls = {
@@ -817,10 +811,6 @@ SLASH_AUTOROLL1 = "/ar"
 SLASH_AUTOROLL2 = "/autoroll"
 SlashCmdList["AUTOROLL"] = function(msg)
 	local _, _, cmd, arg = string.find(string.lower(msg), "%s?([%a-]+)%s?(.*)")
-	local _, _, split1, cmd2 = string.find(cmd, "([%a]+)-([%a]+)")
-	if split1 then
-		cmd = split1
-	end
 
 	if not cmd or cmd == "" or cmd == "help" then
 		for _, helpMessage in ipairs(helpMessages) do
@@ -832,6 +822,11 @@ SlashCmdList["AUTOROLL"] = function(msg)
 			end
 		end
 		return
+	end
+
+	local _, _, split1, cmd2 = string.find(cmd, "([%a]+)-([%a]+)")
+	if split1 then
+		cmd = split1
 	end
 
 	if cmd == "debug" then
