@@ -568,6 +568,8 @@ function AutoRoll:OnLootClosed()
 	self:Hide()
 end
 
+-- Update money slot in case user does not auto loot
+-- The slot gets recorded before the money is removed and the first LOOT_BIND_CONFIRM is fired
 function AutoRoll:OnLootOpened()
 	self:SetMoneySlotID()
 end
