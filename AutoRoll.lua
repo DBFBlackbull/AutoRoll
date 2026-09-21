@@ -387,6 +387,7 @@ local disenchanterError = "Cannot setup disenchanter: %s"
 function AutoRoll:SetDisenchanter()
 	self.disenchanter.name = nil
 	self.disenchanter.chatName = nil
+	self.disenchanter.lastBroadcast = 0
 	self.disenchanter.rolls = {}
 	self.disenchanter.expectedShards = 0
 
@@ -579,17 +580,23 @@ function AutoRoll:OnStartLootRoll()
 		return
 	end
 
-	local rollValue = AutoRollData.items[itemID]
-	if rollValue then
-		RollOnLoot(rollID, rollValue)
-		return self:PrintLootMsg(rollValue, itemLink)
-	end
-
 	local _, _, _, quality, bindOnPickUp = GetLootRollItemInfo(rollID)
 	local bind = bindOnPickUp and "bop" or "boe"
 	self.rollBind[itemID] = bind
 	if self.disenchanter.name and quality == self.ITEM_QUALITY.RARE and bindOnPickUp then
 		self.disenchanter.rolls[itemID] = self.DISENCHANT_STATE.POTENTIAL
+
+		local timestamp = GetTime()
+		if self.disenchanter.lastBroadcast < timestamp then
+			self.disenchanter.lastBroadcast = timestamp + 1
+			self:Broadcast(string.format("Only use NEED/PASS for Blue BoP items. GREED is reserved for %s to disenchant.", self.disenchanter.name))
+		end
+	end
+
+	local rollValue = AutoRollData.items[itemID]
+	if rollValue then
+		RollOnLoot(rollID, rollValue)
+		return self:PrintLootMsg(rollValue, itemLink)
 	end
 
 	local qualityName = self:GetQualityName(quality)
@@ -785,6 +792,7 @@ function AutoRoll:OnAddonLoaded()
 	self.disenchanter = {
 		name = nil,
 		chatName = nil,
+		lastBroadcast = 0,
 		rolls = {},
 		expectedShards = 0
 	}
