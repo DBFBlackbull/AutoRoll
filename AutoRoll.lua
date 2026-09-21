@@ -384,12 +384,16 @@ function AutoRoll:MuteRolls(cmd, arg)
 end
 
 local disenchanterError = "Cannot setup disenchanter: %s"
-function AutoRoll:SetDisenchanter()
+function AutoRoll:SetDisenchanter(reset)
 	self.disenchanter.name = nil
 	self.disenchanter.chatName = nil
 	self.disenchanter.lastBroadcast = 0
 	self.disenchanter.rolls = {}
 	self.disenchanter.expectedShards = 0
+
+	if reset then
+		return
+	end
 
 	local target = UnitName("target")
 	if not target then
@@ -662,6 +666,12 @@ function AutoRoll:OnPlayerEnteringWorld()
 	end
 end
 
+function AutoRoll:OnPartyMembersChanged()
+	if GetNumPartyMembers() == 0 and GetNumRaidMembers() == 0 then
+		self:SetDisenchanter(true)
+	end
+end
+
 function AutoRoll.ChatFrame_OnEvent(event)
 	if event ~= "CHAT_MSG_LOOT" then
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
@@ -814,6 +824,7 @@ function AutoRoll:OnAddonLoaded()
 	self:RegisterEvent("CONFIRM_LOOT_ROLL")
 
 	self:RegisterEvent("PLAYER_ENTERING_WORLD")
+	self:RegisterEvent("PARTY_MEMBERS_CHANGED")
 
 	self:Hide()
 	self:SetScript("OnUpdate", self.OnUpdate)
@@ -852,6 +863,10 @@ function AutoRoll.OnEvent()
 
 	if event == "PLAYER_ENTERING_WORLD" then
 		return AutoRoll:OnPlayerEnteringWorld()
+	end
+
+	if event == "PARTY_MEMBERS_CHANGED" then
+		return AutoRoll:OnPartyMembersChanged()
 	end
 end
 
