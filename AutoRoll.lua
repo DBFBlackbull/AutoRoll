@@ -866,6 +866,21 @@ SlashCmdList["AUTOROLL"] = function(msg)
 		return AutoRoll:SetItems(AutoRoll.Naxx, arg, "Naxxramas materials.")
 	end
 
+	if cmd == "cc" then
+		if cmd2 == "all" then
+			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE)
+		end
+
+		if cmd2 == "set" then
+			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE.TWILIGHT_CULTIST_SET)
+		end
+
+		if cmd2 == "rep" then
+			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE.REPUTATION)
+		end
+		return
+	end
+
 	if cmd == "zg" then
 		if cmd2 == "all" then
 			return AutoRoll:SetItems(AutoRoll.ZG, arg, "Zul'Gurup coins, bijous, and crafting materials.")
