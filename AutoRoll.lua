@@ -27,6 +27,11 @@ AutoRoll.TEXT = {
 	[0] = "Pass",
 }
 
+AutoRoll.DISENCHANT_STATE = {
+	POTENTIAL = "Potential",
+	GREED_ROLL = "Greed roll"
+}
+
 AutoRoll.AUTO_PASS_UNIQUE = {
 	[12382] = true, -- Key to the City / Strat UD key
 	-- [18250] = true, -- Gordok Shackle Key - Item is consumed on use so a perma pass would be incorrect
@@ -219,6 +224,10 @@ function AutoRoll:PrintLootMsg(rollValue, itemLink)
 	DEFAULT_CHAT_FRAME:AddMessage(self.ADDON_PREFIX..msg, info.r, info.g, info.b, info.id)
 end
 
+function AutoRoll:Broadcast(string)
+	SendChatMessage(self.ADDON_PREFIX..tostring(string), "SAY")
+end
+
 function AutoRoll:GetItemIDFromLink(itemLink)
 	if not itemLink then
 		return
@@ -252,6 +261,11 @@ function AutoRoll:GetItemQualityName(itemID)
 	end
 
 	return self:GetQualityName(itemQuality)
+end
+
+function AutoRoll:IsInDungeonInstance()
+	local _, instanceType = IsInInstance()
+	return instanceType == "party"
 end
 
 function AutoRoll:IsInRaidInstance()
@@ -367,6 +381,32 @@ function AutoRoll:MuteRolls(cmd, arg)
 	end
 
 	return self:Print(string.format(msg, arg))
+end
+
+local disenchanterError = "Cannot setup disenchanter: %s"
+function AutoRoll:SetDisenchanter()
+	self.disenchanter.name = nil
+	self.disenchanter.chatName = nil
+	self.disenchanter.rolls = {}
+	self.disenchanter.expectedShards = 0
+
+	local target = UnitName("target")
+	if not target then
+		return self:Print(string.format(disenchanterError, "No target selected"))
+	end
+
+	if not UnitIsPlayer("target") then
+		return self:Print(string.format(disenchanterError, target.." is not a player"))
+	end
+
+	local inGroup = UnitInParty("target") or UnitInRaid("target")
+	if not inGroup then
+		return self:Print(string.format(disenchanterError, target.." is not in the party or raid"))
+	end
+
+	self.disenchanter.name = target
+	self.disenchanter.chatName = target == self.player.name and "You" or target
+	self:Broadcast(string.format("%s is a Disenchanter. Only use NEED/PASS for Blue BoP items. GREED is reserved for %s to disenchant.", self.disenchanter.name, self.disenchanter.name))
 end
 
 function AutoRoll:SetGroupRoll(cmd, cmd2, arg)
@@ -548,6 +588,9 @@ function AutoRoll:OnStartLootRoll()
 	local _, _, _, quality, bindOnPickUp = GetLootRollItemInfo(rollID)
 	local bind = bindOnPickUp and "bop" or "boe"
 	self.rollBind[itemID] = bind
+	if self.disenchanter.name and quality == self.ITEM_QUALITY.RARE and bindOnPickUp then
+		self.disenchanter.rolls[itemID] = self.DISENCHANT_STATE.POTENTIAL
+	end
 
 	local qualityName = self:GetQualityName(quality)
 	if qualityName then
@@ -594,12 +637,19 @@ function AutoRoll:OnConfirmLootRoll()
 end
 
 function AutoRoll:OnPlayerEnteringWorld()
+	self.player.name = UnitName("player")
+
 	for slotID = 1, GetKeyRingSize() do
 		local itemID = self:GetItemIDFromLink(GetContainerItemLink(KEYRING_CONTAINER, slotID))
 
-		if AutoRoll.AUTO_PASS_UNIQUE[itemID] and AutoRollData.items[itemID] ~= AutoRoll.ACTION.PASS then
-			self:SetItem(itemID, AutoRoll.ACTION.PASS)
+		if self.AUTO_PASS_UNIQUE[itemID] and AutoRollData.items[itemID] ~= self.ACTION.PASS then
+			self:SetItem(itemID, self.ACTION.PASS)
 		end
+	end
+
+	local inGroup = GetNumPartyMembers() > 0 or GetNumRaidMembers() > 0
+	if self:IsInDungeonInstance() and inGroup then
+		self:Print("Dungeon group detected. To setup disenchant mode, target the groups disenchanter and use command /ar de")
 	end
 end
 
@@ -613,10 +663,28 @@ function AutoRoll.ChatFrame_OnEvent(event)
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 	end
 
-	local isWonReceive = string.find(arg1 ,"won") or string.find(arg1 ,"receive")
-	if isWonReceive then
+	if AutoRoll.disenchanter.rolls[itemID] == AutoRoll.DISENCHANT_STATE.POTENTIAL and string.find(tostring(self.disenchant.chatName) .. " have selected Greed for:") then
+		AutoRoll.disenchanter.rolls[itemID] = AutoRoll.DISENCHANT_STATE.GREED_ROLL
+	end
+
+	local isWon = string.find(arg1 ,"won")
+	if isWon then
 		AutoRoll.rollBind[itemID] = nil
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
+	end
+
+	local isReceive,_, receiver, itemLink = string.find(arg1 ,"(.+) receives loot: (.+)%.")
+	if isReceive then
+		AutoRoll.rollBind[itemID] = nil
+		AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
+
+		if AutoRoll.disenchanter.rolls[itemID] == AutoRoll.DISENCHANT_STATE.GREED_ROLL and receiver == AutoRoll.disenchant.chatName then
+			AutoRoll.disenchanter.expectedShards = AutoRoll.disenchanter.expectedShards + 1
+			AutoRoll:Broadcast(string.format("%s received %s. Expect %d shards at the end of the run.", AutoRoll.disenchant.name, itemLink, AutoRoll.disenchanter.expectedShards))
+		end
+
+		AutoRoll.disenchanter.rolls[itemID] = nil
+		return
 	end
 
 	local rollValue = AutoRollData.items[itemID]
@@ -633,6 +701,7 @@ function AutoRoll.ChatFrame_OnEvent(event)
 			return
 		end
 
+		-- not isYou: Ensure the text "You selected Need/Greed/passed" is still shown when muted
 		if AutoRollData.settings.muteRolls[qualityName] and not isYou then
 			return
 		end
@@ -644,6 +713,7 @@ function AutoRoll.ChatFrame_OnEvent(event)
 			return
 		end
 
+		-- not isYou: Ensure the text "You selected Need/Greed/passed" is still shown when muted
 		if AutoRollData.settings.muteRolls.raid and not isYou then
 			return
 		end
@@ -708,9 +778,15 @@ function AutoRoll:OnAddonLoaded()
 
 	self.rollBind = {}
 
+	self.player = {
+		name = nil
+	}
+
 	self.disenchanter = {
-		player = nil,
-		expectedShards = 0,
+		name = nil,
+		chatName = nil,
+		rolls = {},
+		expectedShards = 0
 	}
 
 	self.BlizzardFunctions = {
@@ -835,6 +911,10 @@ SlashCmdList["AUTOROLL"] = function(msg)
 
 	if cmd == "mute" or cmd == "unmute" then
 		return AutoRoll:MuteRolls(cmd, arg)
+	end
+
+	if cmd == "de" then
+		return AutoRoll:SetDisenchanter()
 	end
 
 	if groupRolls[cmd] then
