@@ -225,7 +225,7 @@ function AutoRoll:PrintLootMsg(rollValue, itemLink)
 end
 
 function AutoRoll:Broadcast(string)
-	SendChatMessage(self.ADDON_PREFIX..tostring(string), "SAY")
+	SendChatMessage(string, "SAY")
 end
 
 function AutoRoll:GetItemIDFromLink(itemLink)
@@ -301,6 +301,7 @@ function AutoRoll:Dump()
 	end
 	self:Print("groups = "..dump(tempTable))
 	self:Print("settings = "..dump(AutoRollData.settings))
+	self:Print("disenchanter = "..dump(self.disenchanter))
 end
 
 local autoRollMessage = "Automatically rolling %s on %s"
@@ -592,11 +593,11 @@ function AutoRoll:OnStartLootRoll()
 	if self.disenchanter.name and quality == self.ITEM_QUALITY.RARE and bindOnPickUp then
 		self.disenchanter.rolls[itemID] = self.DISENCHANT_STATE.POTENTIAL
 
-		local timestamp = GetTime()
-		if self.disenchanter.lastBroadcast < timestamp then
-			self.disenchanter.lastBroadcast = timestamp + 1
-			self:Broadcast(string.format("Only use NEED/PASS for Blue BoP items. GREED is reserved for %s to disenchant.", self.disenchanter.name))
-		end
+		--local timestamp = GetTime()
+		--if self.disenchanter.lastBroadcast < timestamp then
+		--	self.disenchanter.lastBroadcast = timestamp + 1
+		--	self:Broadcast(string.format("Only use NEED/PASS for Blue BoP items. GREED is reserved for %s to disenchant.", self.disenchanter.name))
+		--end
 	end
 
 	local rollValue = AutoRollData.items[itemID]
@@ -682,7 +683,7 @@ function AutoRoll.ChatFrame_OnEvent(event)
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 	end
 
-	if AutoRoll.disenchanter.rolls[itemID] == AutoRoll.DISENCHANT_STATE.POTENTIAL and string.find(tostring(self.disenchant.chatName) .. " have selected Greed for:") then
+	if AutoRoll.disenchanter.rolls[itemID] == AutoRoll.DISENCHANT_STATE.POTENTIAL and string.find(arg1, tostring(AutoRoll.disenchanter.chatName) .. " has selected Greed for:") then
 		AutoRoll.disenchanter.rolls[itemID] = AutoRoll.DISENCHANT_STATE.GREED_ROLL
 	end
 
@@ -697,9 +698,10 @@ function AutoRoll.ChatFrame_OnEvent(event)
 		AutoRoll.rollBind[itemID] = nil
 		AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 
-		if AutoRoll.disenchanter.rolls[itemID] == AutoRoll.DISENCHANT_STATE.GREED_ROLL and receiver == AutoRoll.disenchant.chatName then
+		if AutoRoll.disenchanter.rolls[itemID] == AutoRoll.DISENCHANT_STATE.GREED_ROLL and receiver == AutoRoll.disenchanter.chatName then
 			AutoRoll.disenchanter.expectedShards = AutoRoll.disenchanter.expectedShards + 1
-			AutoRoll:Broadcast(string.format("%s received %s. Expect %d shards at the end of the run.", AutoRoll.disenchant.name, itemLink, AutoRoll.disenchanter.expectedShards))
+			local plural = AutoRoll.disenchanter.expectedShards == 1 and "" or "s"
+			AutoRoll:Broadcast(string.format("%s received %s. Expect %d shard%s at the end of the run.", AutoRoll.disenchanter.name, itemLink, AutoRoll.disenchanter.expectedShards, plural))
 		end
 
 		AutoRoll.disenchanter.rolls[itemID] = nil
