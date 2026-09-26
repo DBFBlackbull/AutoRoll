@@ -693,7 +693,7 @@ function AutoRoll.ChatFrame_OnEvent(event)
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 	end
 
-	local isReceive,_, receiver, itemLink = string.find(arg1 ,"(.+) receives loot: (.+)%.")
+	local isReceive,_, receiver, itemLink = string.find(arg1 ,"(.+) receives? loot: (.+)%.")
 	if isReceive then
 		AutoRoll.rollBind[itemID] = nil
 		AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
