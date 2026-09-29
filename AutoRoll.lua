@@ -285,13 +285,42 @@ function AutoRoll:GetRollValue(arg)
 	return -1
 end
 
+local function sortByRarityThenName(a, b)
+	local aItemName, aItemLink, aItemQuality = GetItemInfo(a)
+	local bItemName, bItemLink, bItemQuality = GetItemInfo(b)
+
+	if not aItemQuality and not bItemQuality then
+		return a < b
+	end
+	if aItemQuality and not bItemQuality then
+		return a
+	end
+	if not aItemQuality and bItemQuality then
+		return b
+	end
+
+	if aItemQuality == bItemQuality then
+		return aItemName < bItemName
+	end
+
+	-- sort quality in descending order
+	return bItemQuality < aItemQuality
+end
+
 function AutoRoll:Dump()
 	local tempTable = {}
 	for k, v in pairs(AutoRollData.items) do
-		local key =  self:GetItemLink(k) or k
-		tempTable[key] = self.TEXT[v]
+		table.insert(tempTable, k)
 	end
-	self:Print("items = "..dump(tempTable))
+	self:Print("items = {")
+	table.sort(tempTable, sortByRarityThenName)
+	for i, k in ipairs(tempTable) do
+		local key =  self:GetItemLink(k) or k
+		local rollValue = self.TEXT[AutoRollData.items[k]]
+		DEFAULT_CHAT_FRAME:AddMessage(string.format("    %s = %s", key, rollValue))
+	end
+	DEFAULT_CHAT_FRAME:AddMessage("}")
+
 	tempTable = {}
 	for k, v in pairs(AutoRollData.groups) do
 		for key, value in pairs(v) do
