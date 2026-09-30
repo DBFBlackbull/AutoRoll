@@ -441,7 +441,7 @@ function AutoRoll:SetDisenchanter(reset)
 
 	self.disenchanter.name = target
 	self.disenchanter.chatName = target == self.player.name and "You" or target
-	self:Broadcast(string.format("%s is a Disenchanter. Only use NEED/PASS for Blue BoP items. GREED is reserved for %s to disenchant.", self.disenchanter.name, self.disenchanter.name))
+	self:Broadcast(string.format("%s is a Disenchanter. Only use Need/Pass for Blue BoP items. Greed is reserved for %s to disenchant.", self.disenchanter.name, self.disenchanter.name))
 end
 
 function AutoRoll:SetGroupRoll(cmd, cmd2, arg)
@@ -625,7 +625,7 @@ function AutoRoll:OnStartLootRoll()
 		--local timestamp = GetTime()
 		--if self.disenchanter.lastBroadcast < timestamp then
 		--	self.disenchanter.lastBroadcast = timestamp + 1
-		--	self:Broadcast(string.format("Only use NEED/PASS for Blue BoP items. GREED is reserved for %s to disenchant.", self.disenchanter.name))
+		--	self:Broadcast(string.format("Only use Need/Pass for Blue BoP items. Greed is reserved for %s to disenchant.", self.disenchanter.name))
 		--end
 	end
 
