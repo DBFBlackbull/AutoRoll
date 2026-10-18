@@ -55,6 +55,12 @@ AutoRoll.GEMS = {
 	[12800] = true,  -- Azerothian Diamond
 }
 
+AutoRoll.MANA = {
+	[13444] = true, -- Major Mana Potion
+	[12662] = true, -- Demonic Rune
+	[20520] = true, -- Dark Rune
+}
+
 AutoRoll.ARGENT_DAWN = {
 	-- Scourgestones
 	[12840] = true,
@@ -351,29 +357,32 @@ function AutoRoll:SetItem(itemID, rollValue, skipMessage)
 	self:Print(string.format(removeRollMessage, displayItem))
 end
 
-function AutoRoll:SetItems(items, arg, itemGroup)
+function AutoRoll:SetItems(items, arg, itemGroupMessage)
 	local rollValue = self:GetRollValue(arg)
 	if rollValue == -1 then
 		return self:Print(string.format(unknownArgumentMessage, arg))
 	end
 
+	local skipMessage = type(itemGroupMessage) == "string"
 	for itemID, value in pairs(items) do
 		if type(value) == "table" then
 			for innerItemID, _ in pairs(value) do
-				self:SetItem(innerItemID, rollValue, true)
+				self:SetItem(innerItemID, rollValue, skipMessage)
 			end
 		end
 
 		if type(itemID) == "number" then
-			self:SetItem(itemID, rollValue, true)
+			self:SetItem(itemID, rollValue, skipMessage)
 		end
 	end
 
-	if rollValue then
-		return self:Print(string.format(autoRollMessage, self.TEXT[rollValue], itemGroup))
-	end
+	if itemGroupMessage then
+		if rollValue then
+			return self:Print(string.format(autoRollMessage, self.TEXT[rollValue], itemGroupMessage))
+		end
 
-	self:Print(string.format(removeRollMessage, itemGroup))
+		self:Print(string.format(removeRollMessage, itemGroupMessage))
+	end
 end
 
 local muteMessage = "Muting %s roll values. Showing only win and received."
@@ -476,6 +485,11 @@ function AutoRoll:SetGroupRoll(cmd, cmd2, arg)
 	if cmd == "purple" or cmd == "epic" then
 		table = AutoRollData.groups.epic
 		itemText = "Epic %sitems."
+	end
+
+	if cmd == "legendary" or cmd == "orange" then
+		table = AutoRollData.groups.legendary
+		itemText = "Legendary %sitems."
 	end
 
 	if cmd == "raid" then
@@ -791,33 +805,53 @@ function AutoRoll:ValidateItemArg(arg)
 	return itemID
 end
 
+local freshData = {
+	items = {},
+	groups = {
+		poor      = { boe = nil, bop = nil, },
+		common    = { boe = nil, bop = nil, },
+		uncommon  = { boe = nil, bop = nil, },
+		rare      = { boe = nil, bop = nil, },
+		epic      = { boe = nil, bop = nil, },
+		legendary = { boe = nil, bop = nil, },
+		raid      = { boe = nil, bop = nil, },
+	},
+	settings = {
+		muteRolls = {
+			auto = false,
+			poor = false,
+			common = false,
+			uncommon = false,
+			rare = false,
+			epic = false,
+			legendary = false,
+			raid = false
+		}
+	}
+}
+function AutoRoll:InitializeData()
+	if not AutoRollData then
+		AutoRollData = freshData
+		return
+	end
+
+	for k,v in pairs(freshData.groups) do
+		if not AutoRollData.groups[k] then
+			AutoRollData.groups[k] = v
+		end
+	end
+
+	for k,v in pairs(freshData.settings.muteRolls) do
+		if not AutoRollData.settings.muteRolls[k] then
+			AutoRollData.settings.muteRolls[k] = v
+		end
+ 	end
+end
+
 function AutoRoll:OnAddonLoaded()
 	self:UnregisterEvent("ADDON_LOADED")
 
-	if not AutoRollData or not AutoRollData.groups or not AutoRollData.groups.poor or not AutoRollData.groups.poor then
-		AutoRollData = {
-			items = {},
-			groups = {
-				poor     = { boe = nil, bop = nil, },
-				common   = { boe = nil, bop = nil, },
-				uncommon = { boe = nil, bop = nil, },
-				rare     = { boe = nil, bop = nil, },
-				epic     = { boe = nil, bop = nil, },
-				raid     = { boe = nil, bop = nil, },
-			},
-			settings = {
-				muteRolls = {
-					auto = false,
-					poor = false,
-					common = false,
-					uncommon = false,
-					rare = false,
-					epic = false,
-					raid = false
-				}
-			}
-		}
-	end
+	self:InitializeData()
 
 	self.confirm = {
 		moneySlotID = nil,
@@ -907,17 +941,19 @@ AutoRoll:RegisterEvent("ADDON_LOADED")
 local helpMessages = {
 	"--- Auto roll commands ---",
 	"    Single item: /ar (need|greed|pass||remove) (itemID|itemLink)",
+	"    Gems: /ar gems (need|greed|pass||remove)",
+	"    Mana: /ar mana (need|greed|pass||remove)",
 	"    Argent Dawn items: /ar ad (need|greed|pass||remove)",
-	"    Scourge Invasion items: /ar si (need|greed|pass||remove)",
 	"    Cenarion Circle items: /ar cc-(all|set||rep) (need|greed|pass||remove)",
+	"    Scourge Invasion items: /ar si (need|greed|pass||remove)",
 	"    MC items: /ar mc (need|greed|pass||remove)",
 	"    BWL items: /ar bwl (need|greed|pass||remove)",
 	"    ZG items: /ar zg-(all|coin|bijou|craft) (need|greed|pass||remove)",
 	"    AQ items: /ar aq-(all|scarab|idol|mount) (need|greed|pass||remove)",
 	"    Naxx items: /ar naxx (need|greed|pass||remove)",
-	"    Group settings: /ar (poor|common|uncommon|rare|epic||raid)-(all|boe|bop) (need|greed|pass||remove)",
+	"    Group settings: /ar (poor|common|uncommon|rare|epic|legendary||raid)-(all|boe|bop) (need|greed|pass||remove)",
 	"--- Chat commands  ---",
-	"    Mute rolls: /ar (mute|unmute) (auto|poor|common|uncommon|rare|epic||raid)",
+	"    Mute rolls: /ar (mute|unmute) (auto|poor|common|uncommon|rare|epic|legendary||raid)",
 	"    Disenchanter mode: /ar de <target>",
 	"--- Help commands ---",
 	"    Show all items tracked: /ar debug",
@@ -936,6 +972,8 @@ local groupRolls = {
 	["rare"] = true,
 	["purple"] = true,
 	["epic"] = true,
+	["legendary"] = true,
+	["orange"] = true,
 	["raid"] = true,
 }
 
@@ -977,6 +1015,14 @@ SlashCmdList["AUTOROLL"] = function(msg)
 		return AutoRoll:SetGroupRoll(cmd, cmd2, arg)
 	end
 
+	if cmd == "gems" then
+		return AutoRoll:SetItems(AutoRoll.GEMS, arg, "Gems.")
+	end
+
+	if cmd == "mana" then
+		return AutoRoll:SetItems(AutoRoll.MANA, arg)
+	end
+
 	if cmd == "ad" then
 		return AutoRoll:SetItems(AutoRoll.ARGENT_DAWN, arg, "Argent Dawn reputation items.")
 	end
@@ -999,15 +1045,15 @@ SlashCmdList["AUTOROLL"] = function(msg)
 
 	if cmd == "cc" then
 		if cmd2 == "all" then
-			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE)
+			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE, arg, "Cenarion Circle reputation and set items.")
 		end
 
 		if cmd2 == "set" then
-			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE.TWILIGHT_CULTIST_SET)
+			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE.TWILIGHT_CULTIST_SET, arg, "Twilight Cultist set items.")
 		end
 
 		if cmd2 == "rep" then
-			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE.REPUTATION)
+			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE.REPUTATION, arg, "Twilight Texts and Abyssal rep items.")
 		end
 		return
 	end
