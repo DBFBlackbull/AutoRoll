@@ -1065,11 +1065,11 @@ SlashCmdList["AUTOROLL"] = function(msg)
 			return AutoRoll:SetItems(AutoRoll.ZG, rollValue, "Zul'Gurup coins, bijous, and crafting materials.")
 		end
 
-		if arg2 == "coin" then
+		if arg2 == "coin" or arg2 == "coins" then
 			return AutoRoll:SetItems(AutoRoll.ZG.COINS, rollValue, "Zul'Gurup coins.")
 		end
 
-		if arg2 == "bijou" then
+		if arg2 == "bijou" or arg2 == "bijous" then
 			return AutoRoll:SetItems(AutoRoll.ZG.BIJOUS, rollValue, "Zul'Gurup bijous.")
 		end
 
@@ -1084,15 +1084,15 @@ SlashCmdList["AUTOROLL"] = function(msg)
 			return AutoRoll:SetItems(AutoRoll.AQ, rollValue, "Ahn'Qiraj scarabs, idols, and mounts.")
 		end
 
-		if arg2 == "scarab" then
+		if arg2 == "scarab" or arg2 == "scarabs" then
 			return AutoRoll:SetItems(AutoRoll.AQ.SCARABS, rollValue, "Ahn'Qiraj scarabs.")
 		end
 
-		if arg2 == "idol" then
+		if arg2 == "idol" or arg2 == "idols" then
 			return AutoRoll:SetItems(AutoRoll.AQ.IDOLS, rollValue, "Ahn'Qiraj idols.")
 		end
 
-		if arg2 == "mount" then
+		if arg2 == "mount" or arg2 == "mounts" then
 			return AutoRoll:SetItems(AutoRoll.AQ.MOUNTS, rollValue, "Ahn'Qiraj mounts.")
 		end
 		return
