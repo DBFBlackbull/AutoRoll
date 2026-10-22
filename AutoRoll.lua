@@ -63,9 +63,9 @@ AutoRoll.MANA = {
 
 AutoRoll.ARGENT_DAWN = {
 	-- Scourgestones
-	[12840] = true,
-	[12841] = true,
-	[12843] = true,
+	[12840] = true, -- Minion's
+	[12841] = true, -- Invader's
+	[12843] = true, -- Corrupter's
 	-- Healthy Dragon Scale
 	[13920] = true,
 }
@@ -158,14 +158,14 @@ AutoRoll.AQ = {
 		[20881] = true,
 		[20882] = true,
 		-- Scarab Coffer Keys
-		[21761] = true,
-		[21762] = true,
+		[21761] = true, -- Normal Key (AQ20)
+		[21762] = true, -- Greater Key (AQ40)
 	},
 	MOUNTS = {
-		[21218] = true,
-		[21321] = true,
-		[21323] = true,
-		[21324] = true,
+		[21218] = true, -- Blue
+		[21321] = true, -- Red
+		[21323] = true, -- Green
+		[21324] = true, -- Yellow
 	},
 }
 
@@ -173,10 +173,10 @@ AutoRoll.Naxx = {
 	[23055] = true, -- Word of Thawing
 	[22682] = true, -- Frozen Rune
 	-- Wartorn Scrap
-	[22373] = true,
-	[22374] = true,
-	[22375] = true,
-	[22376] = true,
+	[22373] = true, -- Leather
+	[22374] = true, -- Chain
+	[22375] = true, -- Plate
+	[22376] = true, -- Cloth
 }
 
 AutoRoll.SCOURGE_INVASION = {
@@ -362,12 +362,7 @@ function AutoRoll:SetItem(itemID, rollValue, skipMessage)
 	self:Print(string.format(removeRollMessage, displayItem))
 end
 
-function AutoRoll:SetItems(items, arg, itemGroupMessage)
-	local rollValue = self:GetRollValue(arg)
-	if rollValue == -1 then
-		return self:Print(string.format(unknownArgumentMessage, arg))
-	end
-
+function AutoRoll:SetItems(items, rollValue, itemGroupMessage)
 	local skipMessage = type(itemGroupMessage) == "string"
 	for itemID, value in pairs(items) do
 		if type(value) == "table" then
@@ -457,54 +452,49 @@ function AutoRoll:SetDisenchanter(reset)
 	self:Broadcast(string.format("%s is a Disenchanter. Only use Need/Pass for Blue BoP items. Greed is reserved for %s to disenchant.", self.disenchanter.name, self.disenchanter.name))
 end
 
-function AutoRoll:SetGroupRoll(cmd, cmd2, arg)
-	local rollValue = self:GetRollValue(arg)
-	if rollValue == -1 then
-		return self:Print(string.format(unknownArgumentMessage, arg))
-	end
-
+function AutoRoll:SetGroupRoll(rollValue, itemQuality, itemBind)
 	local rollValueText = self.TEXT[rollValue]
 	local table = nil
 	local itemText = ""
-	if cmd == "gray" or cmd == "grey" or cmd == "poor" then
+	if itemQuality == "gray" or itemQuality == "grey" or itemQuality == "poor" then
 		table = AutoRollData.groups.poor
 		itemText = "Poor %sitems."
 	end
 
-	if cmd == "white" or cmd == "common" then
+	if itemQuality == "white" or itemQuality == "common" then
 		table = AutoRollData.groups.common
 		itemText = "Common %sitems."
 	end
 
-	if cmd == "green" or cmd == "uncommon" then
+	if itemQuality == "green" or itemQuality == "uncommon" then
 		table = AutoRollData.groups.uncommon
 		itemText = "Uncommon %sitems."
 	end
 
-	if cmd == "blue" or cmd == "rare" then
+	if itemQuality == "blue" or itemQuality == "rare" then
 		table = AutoRollData.groups.rare
 		itemText = "Rare %sitems."
 	end
 
-	if cmd == "purple" or cmd == "epic" then
+	if itemQuality == "purple" or itemQuality == "epic" then
 		table = AutoRollData.groups.epic
 		itemText = "Epic %sitems."
 	end
 
-	if cmd == "legendary" or cmd == "orange" then
+	if itemQuality == "legendary" or itemQuality == "orange" then
 		table = AutoRollData.groups.legendary
 		itemText = "Legendary %sitems."
 	end
 
-	if cmd == "raid" then
+	if itemQuality == "raid" then
 		table = AutoRollData.groups.raid
 		itemText = "%sitems in Raid instances."
 	end
 
-	if cmd2 == "bop" then
+	if itemBind == "bop" then
 		table.bop = rollValue
 		itemText = string.format(itemText, "BoP ")
-	elseif cmd2 == "boe" then
+	elseif itemBind == "boe" then
 		table.boe = rollValue
 		itemText = string.format(itemText, "BoE ")
 	else
@@ -947,17 +937,17 @@ AutoRoll:RegisterEvent("ADDON_LOADED")
 local helpMessages = {
 	"--- Auto roll commands ---",
 	"    Single item: /ar (need|greed|pass||remove) (itemID|itemLink)",
-	"    Gems: /ar gems (need|greed|pass||remove)",
-	"    Mana: /ar mana (need|greed|pass||remove)",
-	"    Argent Dawn items: /ar ad (need|greed|pass||remove)",
-	"    Cenarion Circle items: /ar cc-(all|set||rep) (need|greed|pass||remove)",
-	"    Scourge Invasion items: /ar si (need|greed|pass||remove)",
-	"    MC items: /ar mc (need|greed|pass||remove)",
-	"    BWL items: /ar bwl (need|greed|pass||remove)",
-	"    ZG items: /ar zg-(all|coin|bijou|craft) (need|greed|pass||remove)",
-	"    AQ items: /ar aq-(all|scarab|idol|mount) (need|greed|pass||remove)",
-	"    Naxx items: /ar naxx (need|greed|pass||remove)",
-	"    Group settings: /ar (poor|common|uncommon|rare|epic|legendary||raid)-(all|boe|bop) (need|greed|pass||remove)",
+	"    Gems: /ar (need|greed|pass||remove) gems",
+	"    Mana: /ar (need|greed|pass||remove) mana",
+	"    Argent Dawn items: /ar (need|greed|pass||remove) ad",
+	"    Cenarion Circle items: /ar (need|greed|pass||remove) cc-(all|set||rep)",
+	"    Scourge Invasion items: /ar (need|greed|pass||remove) si",
+	"    MC items: /ar (need|greed|pass||remove) mc",
+	"    BWL items: /ar (need|greed|pass||remove) bwl",
+	"    ZG items: /ar (need|greed|pass||remove) zg-(all|coin|bijou|craft)",
+	"    AQ items: /ar (need|greed|pass||remove) aq-(all|scarab|idol|mount)",
+	"    Naxx items: /ar (need|greed|pass||remove) naxx",
+	"    Group settings: /ar (need|greed|pass||remove) (poor|common|uncommon|rare|epic|legendary||raid)-(all|boe|bop)",
 	"--- Chat commands  ---",
 	"    Mute rolls: /ar (mute|unmute) (auto|poor|common|uncommon|rare|epic|legendary||raid)",
 	"    Disenchanter mode: /ar de <target>",
@@ -986,7 +976,7 @@ local groupRolls = {
 SLASH_AUTOROLL1 = "/ar"
 SLASH_AUTOROLL2 = "/autoroll"
 SlashCmdList["AUTOROLL"] = function(msg)
-	local _, _, cmd, arg = string.find(string.lower(msg), "%s?([%a-]+)%s?(.*)")
+	local _, _, cmd, arg1 = string.find(string.lower(msg), "%s?(%a+)%s+(.*)")
 
 	if not cmd or cmd == "" or cmd == "help" then
 		for _, helpMessage in ipairs(helpMessages) do
@@ -1000,116 +990,117 @@ SlashCmdList["AUTOROLL"] = function(msg)
 		return
 	end
 
-	local _, _, split1, cmd2 = string.find(cmd, "([%a]+)-([%a]+)")
-	if split1 then
-		cmd = split1
-	end
-
-	if cmd == "debug" then
-		return AutoRoll:Dump()
-	end
-
 	if cmd == "mute" or cmd == "unmute" then
-		return AutoRoll:MuteRolls(cmd, arg)
+		return AutoRoll:MuteRolls(cmd, arg1)
 	end
 
 	if cmd == "de" then
 		return AutoRoll:SetDisenchanter()
 	end
 
-	if groupRolls[cmd] then
-		return AutoRoll:SetGroupRoll(cmd, cmd2, arg)
+	if cmd == "debug" then
+		return AutoRoll:Dump()
 	end
 
-	if cmd == "gems" then
-		return AutoRoll:SetItems(AutoRoll.GEMS, arg, "Gems.")
-	end
-
-	if cmd == "mana" then
-		return AutoRoll:SetItems(AutoRoll.MANA, arg)
-	end
-
-	if cmd == "ad" then
-		return AutoRoll:SetItems(AutoRoll.ARGENT_DAWN, arg, "Argent Dawn reputation items.")
-	end
-
-	if cmd == "si" then
-		return AutoRoll:SetItems(AutoRoll.SCOURGE_INVASION, arg, "Scourge Invasion items.")
-	end
-
-	if cmd == "mc" then
-		return AutoRoll:SetItems(AutoRoll.MC, arg, "Molten Core crafting materials.")
-	end
-
-	if cmd == "bwl" then
-		return AutoRoll:SetItems(AutoRoll.BWL, arg, "Blackwing Lair items.")
-	end
-
-	if cmd == "naxx" then
-		return AutoRoll:SetItems(AutoRoll.Naxx, arg, "Naxxramas materials.")
-	end
-
-	if cmd == "cc" then
-		if cmd2 == "all" then
-			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE, arg, "Cenarion Circle reputation and set items.")
-		end
-
-		if cmd2 == "set" then
-			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE.TWILIGHT_CULTIST_SET, arg, "Twilight Cultist set items.")
-		end
-
-		if cmd2 == "rep" then
-			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE.REPUTATION, arg, "Twilight Texts and Abyssal rep items.")
-		end
-		return
-	end
-
-	if cmd == "zg" then
-		if cmd2 == "all" then
-			return AutoRoll:SetItems(AutoRoll.ZG, arg, "Zul'Gurup coins, bijous, and crafting materials.")
-		end
-
-		if cmd2 == "coin" then
-			return AutoRoll:SetItems(AutoRoll.ZG.COINS, arg, "Zul'Gurup coins.")
-		end
-
-		if cmd2 == "bijou" then
-			return AutoRoll:SetItems(AutoRoll.ZG.BIJOUS, arg, "Zul'Gurup bijous.")
-		end
-
-		if cmd2 == "craft" then
-			return AutoRoll:SetItems(AutoRoll.ZG.CRAFT, arg, "Zul'Gurup crafting materials.")
-		end
-		return
-	end
-
-	if cmd == "aq" then
-		if cmd2 == "all" then
-			return AutoRoll:SetItems(AutoRoll.AQ, arg, "Ahn'Qiraj scarabs, idols, and mounts.")
-		end
-
-		if cmd2 == "scarab" then
-			return AutoRoll:SetItems(AutoRoll.AQ.SCARABS, arg, "Ahn'Qiraj scarabs.")
-		end
-
-		if cmd2 == "idol" then
-			return AutoRoll:SetItems(AutoRoll.AQ.IDOLS, arg, "Ahn'Qiraj idols.")
-		end
-
-		if cmd2 == "mount" then
-			return AutoRoll:SetItems(AutoRoll.AQ.MOUNTS, arg, "Ahn'Qiraj mounts.")
-		end
-		return
-	end
-
+	--Handle roll commands
 	local rollValue = AutoRoll:GetRollValue(cmd)
 	if rollValue == -1 then
 		return AutoRoll:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", cmd))
 	end
 
-	local itemID = AutoRoll:ValidateItemArg(arg)
+	local _, _, split1, arg2 = string.find(arg1, "([%a]+)-([%a]+)")
+	if split1 then
+		arg1 = split1
+	end
+
+	if groupRolls[arg1] then
+		return AutoRoll:SetGroupRoll(rollValue, arg1, arg2)
+	end
+
+	if arg1 == "gems" then
+		return AutoRoll:SetItems(AutoRoll.GEMS, rollValue, "Gems.")
+	end
+
+	if arg1 == "mana" then
+		return AutoRoll:SetItems(AutoRoll.MANA, rollValue)
+	end
+
+	if arg1 == "ad" then
+		return AutoRoll:SetItems(AutoRoll.ARGENT_DAWN, rollValue, "Argent Dawn reputation items.")
+	end
+
+	if arg1 == "si" then
+		return AutoRoll:SetItems(AutoRoll.SCOURGE_INVASION, rollValue, "Scourge Invasion items.")
+	end
+
+	if arg1 == "mc" then
+		return AutoRoll:SetItems(AutoRoll.MC, rollValue, "Molten Core crafting materials.")
+	end
+
+	if arg1 == "bwl" then
+		return AutoRoll:SetItems(AutoRoll.BWL, rollValue, "Blackwing Lair items.")
+	end
+
+	if arg1 == "naxx" then
+		return AutoRoll:SetItems(AutoRoll.Naxx, rollValue, "Naxxramas materials.")
+	end
+
+	if arg1 == "cc" then
+		if arg2 == "all" then
+			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE, rollValue, "Cenarion Circle reputation and set items.")
+		end
+
+		if arg2 == "set" then
+			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE.TWILIGHT_CULTIST_SET, rollValue, "Twilight Cultist set items.")
+		end
+
+		if arg2 == "rep" then
+			return AutoRoll:SetItems(AutoRoll.CENARION_CIRCLE.REPUTATION, rollValue, "Twilight Texts and Abyssal rep items.")
+		end
+		return
+	end
+
+	if arg1 == "zg" then
+		if arg2 == "all" then
+			return AutoRoll:SetItems(AutoRoll.ZG, rollValue, "Zul'Gurup coins, bijous, and crafting materials.")
+		end
+
+		if arg2 == "coin" then
+			return AutoRoll:SetItems(AutoRoll.ZG.COINS, rollValue, "Zul'Gurup coins.")
+		end
+
+		if arg2 == "bijou" then
+			return AutoRoll:SetItems(AutoRoll.ZG.BIJOUS, rollValue, "Zul'Gurup bijous.")
+		end
+
+		if arg2 == "craft" then
+			return AutoRoll:SetItems(AutoRoll.ZG.CRAFT, rollValue, "Zul'Gurup crafting materials.")
+		end
+		return
+	end
+
+	if arg1 == "aq" then
+		if arg2 == "all" then
+			return AutoRoll:SetItems(AutoRoll.AQ, rollValue, "Ahn'Qiraj scarabs, idols, and mounts.")
+		end
+
+		if arg2 == "scarab" then
+			return AutoRoll:SetItems(AutoRoll.AQ.SCARABS, rollValue, "Ahn'Qiraj scarabs.")
+		end
+
+		if arg2 == "idol" then
+			return AutoRoll:SetItems(AutoRoll.AQ.IDOLS, rollValue, "Ahn'Qiraj idols.")
+		end
+
+		if arg2 == "mount" then
+			return AutoRoll:SetItems(AutoRoll.AQ.MOUNTS, rollValue, "Ahn'Qiraj mounts.")
+		end
+		return
+	end
+
+	local itemID = AutoRoll:ValidateItemArg(arg1)
 	if not itemID then
-		return AutoRoll:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", arg))
+		return AutoRoll:Print(string.format("Unknown argument: '%s'. Type '/ar help' to learn the commands", arg1))
 	end
 
 	return AutoRoll:SetItem(itemID, rollValue)
