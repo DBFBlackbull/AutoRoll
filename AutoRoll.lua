@@ -716,7 +716,7 @@ function AutoRoll.ChatFrame_OnEvent(event)
 
 	if AutoRoll.disenchanter.rolls[itemID] then
 		--                                             Player/You has/have
-		local _, _, greedRoller = string.find(arg1, "(%a+) ha%a%a? selected Greed for:")
+		local _, _, greedRoller = string.find(arg1, "(%a+) %a+ selected Greed for:")
 		if greedRoller then
 			if greedRoller == AutoRoll.disenchanter.chatName then
 				AutoRoll.disenchanter.rolls[itemID] = AutoRoll.DISENCHANT_STATE.GREED_ROLL
@@ -730,7 +730,8 @@ function AutoRoll.ChatFrame_OnEvent(event)
 	local isWon = string.find(arg1 ,"won")
 	if isWon then
 		AutoRoll.rollBind[itemID] = nil
-		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
+		AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
+		return
 	end
 
 	local isReceive,_, receiver, itemLink = string.find(arg1 ,"(.+) receives? loot: (.+)%.")
@@ -748,17 +749,19 @@ function AutoRoll.ChatFrame_OnEvent(event)
 		return
 	end
 
+	local isYou = string.find(arg1 ,"You")
+	-- Ensure the "You selected Need" / "You passed" always gets ignored when AutoRoll rolls for you
+	local muteAutoRolls = (isYou or AutoRollData.settings.muteRolls.auto)
 	local rollValue = AutoRollData.items[itemID]
-	if rollValue and AutoRollData.settings.muteRolls.auto then
+	if rollValue and muteAutoRolls then
 		return
 	end
 
-	local isYou = string.find(arg1 ,"You")
 	local bind = AutoRoll.rollBind[itemID] or ""
 	local qualityName = AutoRoll:GetItemQualityName(itemID)
 	if qualityName then
 		rollValue = AutoRollData.groups[qualityName][bind]
-		if rollValue and AutoRollData.settings.muteRolls.auto then
+		if rollValue and muteAutoRolls then
 			return
 		end
 
@@ -770,7 +773,7 @@ function AutoRoll.ChatFrame_OnEvent(event)
 
 	if AutoRoll:IsInRaidInstance() then
 		rollValue = AutoRollData.groups.raid[bind]
-		if rollValue and AutoRollData.settings.muteRolls.auto then
+		if rollValue and muteAutoRolls then
 			return
 		end
 
@@ -976,7 +979,7 @@ local groupRolls = {
 SLASH_AUTOROLL1 = "/ar"
 SLASH_AUTOROLL2 = "/autoroll"
 SlashCmdList["AUTOROLL"] = function(msg)
-	local _, _, cmd, arg1 = string.find(string.lower(msg), "%s?(%a+)%s+(.*)")
+	local _, _, cmd, arg1 = string.find(string.lower(msg), "%s?(%a+)%s*(.*)")
 
 	if not cmd or cmd == "" or cmd == "help" then
 		for _, helpMessage in ipairs(helpMessages) do
