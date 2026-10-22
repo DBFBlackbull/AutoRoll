@@ -213,9 +213,10 @@ local function dump(o)
 	return tostring(o)
 end
 
-AutoRoll.ADDON_PREFIX = ITEM_QUALITY_COLORS[AutoRoll.ITEM_QUALITY.ARTIFACT].hex.."[AutoRoll]: "..FONT_COLOR_CODE_CLOSE
+AutoRoll.ADDON_PREFIX = "[AutoRoll]: "
+AutoRoll.ADDON_COLOR_PREFIX = ITEM_QUALITY_COLORS[AutoRoll.ITEM_QUALITY.ARTIFACT].hex .. AutoRoll.ADDON_PREFIX .. FONT_COLOR_CODE_CLOSE
 function AutoRoll:Print(string)
-	DEFAULT_CHAT_FRAME:AddMessage(self.ADDON_PREFIX..tostring(string))
+	DEFAULT_CHAT_FRAME:AddMessage(self.ADDON_COLOR_PREFIX ..tostring(string))
 end
 
 function AutoRoll:PrintLootMsg(rollValue, itemLink)
@@ -227,11 +228,15 @@ function AutoRoll:PrintLootMsg(rollValue, itemLink)
 	end
 
 	local info = ChatTypeInfo["LOOT"]
-	DEFAULT_CHAT_FRAME:AddMessage(self.ADDON_PREFIX..msg, info.r, info.g, info.b, info.id)
+	DEFAULT_CHAT_FRAME:AddMessage(self.ADDON_COLOR_PREFIX ..msg, info.r, info.g, info.b, info.id)
 end
 
-function AutoRoll:Broadcast(string)
-	SendChatMessage(string, "SAY")
+function AutoRoll:Broadcast(string, player)
+	if player then
+		return SendChatMessage(self.ADDON_PREFIX..string, "WHISPER", nil, player)
+	end
+
+	SendChatMessage(self.ADDON_PREFIX..string, "SAY")
 end
 
 function AutoRoll:GetItemIDFromLink(itemLink)
@@ -426,7 +431,6 @@ local disenchanterError = "Cannot setup disenchanter: %s"
 function AutoRoll:SetDisenchanter(reset)
 	self.disenchanter.name = nil
 	self.disenchanter.chatName = nil
-	self.disenchanter.lastBroadcast = 0
 	self.disenchanter.rolls = {}
 	self.disenchanter.expectedShards = 0
 
@@ -635,12 +639,6 @@ function AutoRoll:OnStartLootRoll()
 	self.rollBind[itemID] = bind
 	if self.disenchanter.name and quality == self.ITEM_QUALITY.RARE and bindOnPickUp then
 		self.disenchanter.rolls[itemID] = self.DISENCHANT_STATE.POTENTIAL
-
-		--local timestamp = GetTime()
-		--if self.disenchanter.lastBroadcast < timestamp then
-		--	self.disenchanter.lastBroadcast = timestamp + 1
-		--	self:Broadcast(string.format("Only use Need/Pass for Blue BoP items. Greed is reserved for %s to disenchant.", self.disenchanter.name))
-		--end
 	end
 
 	local rollValue = AutoRollData.items[itemID]
@@ -726,8 +724,17 @@ function AutoRoll.ChatFrame_OnEvent(event)
 		return AutoRoll.BlizzardFunctions.ChatFrame_OnEvent(event)
 	end
 
-	if AutoRoll.disenchanter.rolls[itemID] == AutoRoll.DISENCHANT_STATE.POTENTIAL and string.find(arg1, tostring(AutoRoll.disenchanter.chatName) .. " has selected Greed for:") then
-		AutoRoll.disenchanter.rolls[itemID] = AutoRoll.DISENCHANT_STATE.GREED_ROLL
+	if AutoRoll.disenchanter.rolls[itemID] then
+		--                                             Player/You has/have
+		local _, _, greedRoller = string.find(arg1, "(%a+) ha%a%a? selected Greed for:")
+		if greedRoller then
+			if greedRoller == AutoRoll.disenchanter.chatName then
+				AutoRoll.disenchanter.rolls[itemID] = AutoRoll.DISENCHANT_STATE.GREED_ROLL
+			else
+				greedRoller = greedRoller == "You" and AutoRoll.player.name or greedRoller
+				AutoRoll:Broadcast(string.format("Greed rolling is reserved for %s to disenchant. Use Need/Pass for Blue BoP items", self.disenchanter.name), greedRoller)
+			end
+		end
 	end
 
 	local isWon = string.find(arg1 ,"won")
@@ -836,13 +843,13 @@ function AutoRoll:InitializeData()
 	end
 
 	for k,v in pairs(freshData.groups) do
-		if not AutoRollData.groups[k] then
+		if AutoRollData.groups[k] == nil then
 			AutoRollData.groups[k] = v
 		end
 	end
 
 	for k,v in pairs(freshData.settings.muteRolls) do
-		if not AutoRollData.settings.muteRolls[k] then
+		if AutoRollData.settings.muteRolls[k] == nil then
 			AutoRollData.settings.muteRolls[k] = v
 		end
  	end
@@ -869,7 +876,6 @@ function AutoRoll:OnAddonLoaded()
 	self.disenchanter = {
 		name = nil,
 		chatName = nil,
-		lastBroadcast = 0,
 		rolls = {},
 		expectedShards = 0
 	}
